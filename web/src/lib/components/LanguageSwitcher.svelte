@@ -6,13 +6,15 @@
 	const localeKeys: Record<Locale, MessageKey> = {
 		es: 'language.es',
 		en: 'language.en',
-		fr: 'language.fr'
+		fr: 'language.fr',
+		'zh-CN': 'language.zh-CN'
 	};
 
 	const localeIcons: Record<Locale, IconName> = {
 		es: 'es',
 		en: 'en',
-		fr: 'fr'
+		fr: 'fr',
+		'zh-CN': 'zh-CN'
 	};
 
 	const options = $derived(

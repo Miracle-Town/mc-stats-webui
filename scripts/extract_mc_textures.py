@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -16,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "web" / "static" / "mc"
 ICONS = ROOT / "web" / "src" / "lib" / "mc" / "icons.json"
 ADVANCEMENT_LANG = ROOT / "web" / "src" / "lib" / "mc" / "advancementLang.json"
+ZH_CN_LANG = ROOT / "web" / "src" / "lib" / "mc" / "zh-CN.json"
 INV_CACHE = ROOT / "scripts" / ".cache" / "invicons"
 MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
 ASSET_CDN = "https://resources.download.minecraft.net"
@@ -36,6 +39,7 @@ LANG_FILES = {
 	"en": "assets/minecraft/lang/en_us.json",
 	"es": "assets/minecraft/lang/es_es.json",
 	"fr": "assets/minecraft/lang/fr_fr.json",
+	"zh-CN": "assets/minecraft/lang/zh_cn.json",
 }
 _VERSION_META: dict[str, dict] = {}
 
@@ -889,12 +893,38 @@ def lang_entries(data) -> dict[str, str]:
 
 def write_advancement_lang(jar: zipfile.ZipFile, version: str) -> None:
 	body: dict[str, dict[str, str]] = {}
+	# Some advancement IDs differ from their translation keys (e.g. bred_all_animals).
+	# Read the actual display keys so all locales work with the API's advancement IDs.
+	aliases: dict[str, str] = {}
+	prefix = "data/minecraft/advancement/"
+	for path in jar.namelist():
+		if not path.startswith(prefix) or not path.endswith(".json"):
+			continue
+		display = (load_json(jar, path) or {}).get("display", {})
+		base = "advancements." + path[len(prefix):-5].replace("/", ".")
+		for kind in ("title", "description"):
+			component = display.get(kind)
+			if isinstance(component, dict) and isinstance(component.get("translate"), str):
+				aliases[f"{base}.{kind}"] = component["translate"]
 	for locale, path in LANG_FILES.items():
 		data = load_json(jar, path)
 		entries = lang_entries(data)
 		if not entries:
-			entries = lang_entries(download_lang_asset(version, Path(path).name))
+			data = download_lang_asset(version, Path(path).name)
+			entries = lang_entries(data)
+		if not entries:
+			raise SystemExit(f"Missing advancement translations for {locale} in Minecraft {version}")
+		for key, source in aliases.items():
+			if source in entries:
+				entries[key] = entries[source]
 		body[locale] = entries
+		if locale == "zh-CN":
+			ZH_CN_LANG.parent.mkdir(parents=True, exist_ok=True)
+			vanilla = {
+				key: value for key, value in data.items()
+				if key.startswith(("block.", "item.", "entity.", "stat.")) and isinstance(value, str)
+			}
+			ZH_CN_LANG.write_text(json.dumps(vanilla, indent="\t", ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
 	ADVANCEMENT_LANG.parent.mkdir(parents=True, exist_ok=True)
 	ADVANCEMENT_LANG.write_text(json.dumps(body, indent="\t", ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
 	print(f"Wrote advancement lang to {ADVANCEMENT_LANG}")

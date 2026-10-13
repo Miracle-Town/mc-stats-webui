@@ -8,7 +8,7 @@
 
 :root,
 html[data-theme='dark'] {
-	--font-ui: 'Minecraft', 'Courier New', monospace;
+	--font-ui: 'Minecraft', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Courier New', monospace;
 	--color-bg: #1b120c;
 	--color-fg: #ffffff;
 	--color-muted: #a0a0a0;

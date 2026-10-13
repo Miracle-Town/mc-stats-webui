@@ -15,6 +15,7 @@ export const fr: Record<MessageKey, string> = {
 	'language.es': 'Español',
 	'language.en': 'English',
 	'language.fr': 'Français',
+	'language.zh-CN': '简体中文',
 	'theme.label': 'Thème',
 	'theme.system': 'Système',
 	'theme.light': 'Clair',

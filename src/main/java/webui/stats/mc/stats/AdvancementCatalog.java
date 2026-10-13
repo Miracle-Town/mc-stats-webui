@@ -3,7 +3,6 @@ package webui.stats.mc.stats;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.advancements.AdvancementType;
-import net.minecraft.advancements.DisplayInfo;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
@@ -47,24 +46,24 @@ public final class AdvancementCatalog {
 		synchronized (lock) {
 			List<AdvancementInfo> next = new ArrayList<>();
 			Map<String, Identifier> parents = new HashMap<>();
-			Map<String, DisplayInfo> displays = new HashMap<>();
+			Map<String, AdvancementDisplay> displays = new HashMap<>();
 			for (AdvancementHolder holder : server.getAdvancements().getAllAdvancements()) {
 				Advancement advancement = holder.value();
 				Identifier id = holder.id();
 				advancement.parent().ifPresent(parent -> parents.put(id.toString(), parent));
-				advancement.display().ifPresent(display -> displays.put(id.toString(), display));
+				advancement.display().map(AdvancementDisplay::from).ifPresent(display -> displays.put(id.toString(), display));
 			}
 			Map<String, AdvancementTab> tabMap = new LinkedHashMap<>();
 			for (AdvancementHolder holder : server.getAdvancements().getAllAdvancements()) {
-				Optional<DisplayInfo> display = holder.value().display();
+				Optional<AdvancementDisplay> display = holder.value().display().map(AdvancementDisplay::from);
 				if (display.isEmpty()) {
 					continue;
 				}
-				DisplayInfo info = display.get();
+				AdvancementDisplay info = display.get();
 				String id = holder.id().toString();
 				String tab = tabOf(holder.id(), parents, displays);
 				if (!tabMap.containsKey(tab)) {
-					DisplayInfo root = rootDisplay(holder.id(), parents, displays);
+					AdvancementDisplay root = rootDisplay(holder.id(), parents, displays);
 					tabMap.put(
 						tab,
 						new AdvancementTab(
@@ -142,7 +141,7 @@ public final class AdvancementCatalog {
 		return index >= 0 ? index : TAB_ORDER.size();
 	}
 
-	private static String tabOf(Identifier id, Map<String, Identifier> parents, Map<String, DisplayInfo> displays) {
+	private static String tabOf(Identifier id, Map<String, Identifier> parents, Map<String, AdvancementDisplay> displays) {
 		Identifier current = id;
 		Identifier shown = displays.containsKey(id.toString()) ? id : null;
 		for (int i = 0; i < 48; i++) {
@@ -166,16 +165,16 @@ public final class AdvancementCatalog {
 		return path.isEmpty() ? "other" : path;
 	}
 
-	private static DisplayInfo rootDisplay(Identifier id, Map<String, Identifier> parents, Map<String, DisplayInfo> displays) {
+	private static AdvancementDisplay rootDisplay(Identifier id, Map<String, Identifier> parents, Map<String, AdvancementDisplay> displays) {
 		Identifier current = id;
-		DisplayInfo shown = displays.get(id.toString());
+		AdvancementDisplay shown = displays.get(id.toString());
 		for (int i = 0; i < 48; i++) {
 			Identifier parent = parents.get(current.toString());
 			if (parent == null) {
 				break;
 			}
 			current = parent;
-			DisplayInfo next = displays.get(current.toString());
+			AdvancementDisplay next = displays.get(current.toString());
 			if (next != null) {
 				shown = next;
 			}

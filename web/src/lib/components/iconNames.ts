@@ -7,6 +7,7 @@ export type IconName =
 	| 'es'
 	| 'en'
 	| 'fr'
+	| 'zh-CN'
 	| 'poseIdle'
 	| 'poseWalk'
 	| 'poseRun'

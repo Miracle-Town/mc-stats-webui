@@ -6,6 +6,21 @@ plugins {
 version = "${project.mod_version}+${project.minecraft_version}"
 group = project.group
 
+def supportedVersions = [
+	'26.1.2': [api: '0.155.3+26.1.2', compat: 'legacy'],
+	'26.2': [api: '0.161.0+26.2', compat: 'legacy'],
+	'26.3': [api: '0.161.0+26.3', compat: 'modern']
+]
+def target = supportedVersions[project.minecraft_version as String]
+if (target == null) {
+	throw new GradleException("Unsupported Minecraft version: ${project.minecraft_version}. Choose ${supportedVersions.keySet().join(', ')}")
+}
+def fabricApiVersion = providers.gradleProperty('fabric_api_version').getOrElse(target.api)
+
+// Keep classes and JARs from different Minecraft versions separate.
+layout.buildDirectory = file("build/${project.minecraft_version}")
+sourceSets.main.java.srcDir("src/compat/${target.compat}/java")
+
 base {
 	archivesName = project.archives_base_name
 }
@@ -20,6 +35,9 @@ repositories {
 
 loom {
 	splitEnvironmentSourceSets()
+	runs.configureEach {
+		runDir "run/${project.minecraft_version}"
+	}
 
 	mods {
 		"mc-stats-webui" {
@@ -35,7 +53,7 @@ dependencies {
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
-	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${fabricApiVersion}"
 }
 
 def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
@@ -58,6 +76,7 @@ tasks.register('extractMcTextures', Exec) {
 	outputs.dir file('web/static/mc')
 	outputs.file file('web/src/lib/mc/icons.json')
 	outputs.file file('web/src/lib/mc/advancementLang.json')
+	outputs.file file('web/src/lib/mc/zh-CN.json')
 	environment 'MC_VERSION', version
 	environment 'GRADLE_USER_HOME', gradle.gradleUserHomeDir.absolutePath
 	if (isWindows) {

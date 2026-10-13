@@ -1,4 +1,5 @@
-import { t, tDynamic } from '$lib/i18n/i18n.svelte';
+import { i18n, t, tDynamic } from '$lib/i18n/i18n.svelte';
+import zhCN from '$lib/mc/zh-CN.json';
 import type { MessageKey } from '$lib/i18n/messages/es';
 import type { VanillaStat } from '$lib/types';
 
@@ -169,6 +170,22 @@ export function humanizeId(id: string): string {
 }
 
 export function vanillaLabel(group: VanillaGroup, id: string): string {
+	if (i18n.locale === 'zh-CN') {
+		const [namespace, path] = id.split(':');
+		if (namespace === 'minecraft' && path) {
+			const name = `${namespace}.${path.replaceAll('/', '.')}`;
+			const kinds = group === 'custom' ? ['stat']
+				: group === 'killed' || group === 'killed_by' ? ['entity']
+				: group === 'mined' ? ['block'] : ['item', 'block'];
+			const translations = zhCN as Record<string, string>;
+			for (const kind of kinds) {
+				const label = translations[`${kind}.${name}`];
+				if (label) {
+					return label;
+				}
+			}
+		}
+	}
 	if (group === 'custom') {
 		return tDynamic('player.custom', shortId(id), humanizeId(id));
 	}

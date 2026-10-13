@@ -73,6 +73,12 @@
 		<rect width="6" height="12" fill="#0055a4" />
 		<rect x="12" width="6" height="12" fill="#ef4135" />
 	</svg>
+{:else if name === 'zh-CN'}
+	<svg viewBox="0 0 18 12" aria-hidden="true">
+		<rect width="18" height="12" fill="#de2910" />
+		<path d="m4 1.5.6 1.8h1.9L5 4.4l.6 1.8L4 5.1 2.4 6.2 3 4.4 1.5 3.3h1.9Z" fill="#ffde00" />
+		<path d="m7.6 1 .2.6h.6l-.5.4.2.6-.5-.4-.5.4.2-.6-.5-.4h.6Zm1.5 1.5.2.6h.6l-.5.4.2.6-.5-.4-.5.4.2-.6-.5-.4h.6Zm0 2 .2.6h.6l-.5.4.2.6-.5-.4-.5.4.2-.6-.5-.4h.6Zm-1.5 1.5.2.6h.6l-.5.4.2.6-.5-.4-.5.4.2-.6-.5-.4h.6Z" fill="#ffde00" />
+	</svg>
 {:else if name === 'poseIdle'}
 	<svg viewBox="0 0 24 24" aria-hidden="true">
 		<circle cx="12" cy="5" r="2.1" fill="none" stroke="currentColor" stroke-width="1.8" />

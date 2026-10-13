@@ -1,16 +1,20 @@
 import { en } from './messages/en';
 import { es, type MessageKey } from './messages/es';
 import { fr } from './messages/fr';
+import { zhCN } from './messages/zh-CN';
 import { STORAGE_KEY, isLocale, type Locale } from './locales';
 import { formatWindowTitle } from '$lib/branding.svelte';
 
-const dictionaries: Record<Locale, Record<MessageKey, string>> = { es, en, fr };
+const dictionaries: Record<Locale, Record<MessageKey, string>> = { es, en, fr, 'zh-CN': zhCN };
 
 function browserLocale(): Locale {
 	if (typeof navigator === 'undefined') {
 		return 'es';
 	}
 	const language = navigator.language?.slice(0, 2).toLowerCase();
+	if (language === 'zh') {
+		return 'zh-CN';
+	}
 	if (isLocale(language)) {
 		return language;
 	}
