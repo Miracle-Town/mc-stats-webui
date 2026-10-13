@@ -81,6 +81,4 @@ without a translation retain their readable fallback names.
 ```bash
 cd web
 corepack yarn check
-cd ..
-node --experimental-strip-types scripts/check_translations.ts
 ```
