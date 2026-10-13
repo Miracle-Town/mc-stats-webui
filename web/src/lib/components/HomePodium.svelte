@@ -93,6 +93,10 @@
 		overflow: visible;
 	}
 
+	.place.empty {
+		overflow: hidden;
+	}
+
 	.figure {
 		margin: 0 0.15rem -7.1rem;
 		z-index: 0;
