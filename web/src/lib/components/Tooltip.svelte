@@ -61,12 +61,27 @@
 	button.hit:focus-visible {
 		color: inherit;
 		background: none;
-		border: none;
 		box-shadow: none;
 	}
 
 	.hit.marked {
+		position: relative;
+		padding-bottom: 2px;
+	}
+
+	.hit.marked::after {
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		left: 0;
 		border-bottom: 2px dotted color-mix(in srgb, currentColor 55%, transparent);
+		content: '';
+		pointer-events: none;
+	}
+
+	.hit.marked:hover::after,
+	.hit.marked:focus-visible::after {
+		opacity: 0;
 	}
 
 	.hit:focus-visible {
