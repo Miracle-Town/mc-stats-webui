@@ -557,7 +557,7 @@
 			{/if}
 		</div>
 		<div class="values">
-			<Tooltip text={row.hint} align="end">
+			<Tooltip text={row.hint} align="start">
 				<span class="num a" class:hot={side === 'a'} class:dim={side === 'b'}>
 					{#if row.coin}
 						<RankingScore value={row.displayA} />
@@ -574,7 +574,7 @@
 					<i style="width: {barWidth(row.b, row.a, row.capped)}%"></i>
 				</div>
 			</div>
-			<Tooltip text={row.hint} align="start">
+			<Tooltip text={row.hint} align="end">
 				<span class="num b" class:hot={side === 'b'} class:dim={side === 'a'}>
 					{#if row.coin}
 						<RankingScore value={row.displayB} />
