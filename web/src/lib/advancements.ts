@@ -1,7 +1,5 @@
-import advancementLang from '$lib/mc/advancementLang.json';
+import { minecraftTranslations as dictionaries } from '$lib/mc/lang';
 import { i18n, type Locale } from '$lib/i18n/i18n.svelte';
-
-const dictionaries = advancementLang as Record<string, Record<string, string>>;
 
 function langKey(id: string, kind: 'title' | 'description') {
 	const colon = id.indexOf(':');

@@ -37,6 +37,11 @@ jobs:
         with:
           node-version: '24'
 
+      - name: setup dotnet for Minecraft item rendering
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
       - name: enable corepack
         run: corepack enable
 
@@ -47,6 +52,18 @@ jobs:
           cache: yarn
           cache-dependency-path: web/yarn.lock
 
+      - name: cache pinned Minecraft build tooling
+        uses: actions/cache@v4
+        with:
+          path: build/tools/mc-atlas
+          key: mc-tooling-${{ runner.os }}-${{ hashFiles('scripts/prepare_mc_tooling.py', 'scripts/mc-atlas/toolchain.json', 'scripts/mc-atlas/tooling.patch') }}
+
+      - name: cache version-specific Minecraft resources
+        uses: actions/cache@v4
+        with:
+          path: build/${{ matrix.minecraft }}/mc/generated
+          key: mc-resources-${{ runner.os }}-${{ matrix.minecraft }}-${{ hashFiles('scripts/generate_mc_resources.py', 'scripts/mc_metadata.py', 'scripts/prepare_mc_tooling.py', 'scripts/mc-atlas/*') }}
+
       - name: make gradle wrapper executable
         run: chmod +x ./gradlew
 
@@ -55,6 +72,8 @@ jobs:
 
       - name: check web UI
         working-directory: web
+        env:
+          MC_VERSION: ${{ matrix.minecraft }}
         run: corepack yarn check
 
       - name: upload JAR

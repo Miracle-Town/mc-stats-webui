@@ -7,6 +7,7 @@ import {
 import { renderAvatar } from '@daidr/minecraft-skin-renderer/canvas2d';
 import { WebGLRendererPlugin } from '@daidr/minecraft-skin-renderer/webgl';
 import { getPlayerTextures } from './mojang';
+import elytraTexture from '$mc/elytra.png?url';
 
 let pluginsReady = false;
 
@@ -52,7 +53,7 @@ export type BodyHandle = {
 };
 
 const walkSpeed = 0.4;
-const defaultElytraTexture = '/mc/entity/elytra.png';
+const defaultElytraTexture = elytraTexture;
 
 export function applyBodyPose(viewer: SkinViewer, pose: BodyPose) {
 	viewer.playAnimation(pose, pose === 'walk' ? { speed: walkSpeed } : undefined);

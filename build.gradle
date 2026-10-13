@@ -69,27 +69,56 @@ tasks.register('yarnInstall', Exec) {
 	outputs.dir file('web/node_modules')
 }
 
-tasks.register('extractMcTextures', Exec) {
-	def version = project.minecraft_version as String
-	inputs.property 'minecraft_version', version
-	inputs.file file('scripts/extract_mc_textures.py')
-	outputs.dir file('web/static/mc')
-	outputs.file file('web/src/lib/mc/icons.json')
-	outputs.file file('web/src/lib/mc/advancementLang.json')
-	['en', 'es', 'fr', 'zh-CN'].each { locale ->
-		outputs.file file("web/src/lib/mc/lang/${locale}.json")
-	}
-	environment 'MC_VERSION', version
+def mcVersion = project.minecraft_version as String
+def mcTooling = layout.projectDirectory.dir('build/tools/mc-atlas')
+def mcResources = layout.buildDirectory.dir('mc/generated')
+def webOutput = layout.buildDirectory.dir('web')
+def pythonCommand = isWindows ? 'python' : 'python3'
+
+tasks.register('prepareMcTooling', Exec) {
+	environment 'PYTHONDONTWRITEBYTECODE', '1'
+	inputs.file file('scripts/prepare_mc_tooling.py')
+	inputs.files file('scripts/mc-atlas/toolchain.json'), file('scripts/mc-atlas/tooling.patch')
+	outputs.file mcTooling.file('classpath.txt')
+	outputs.file mcTooling.file('toolchain.json')
+	outputs.dir mcTooling.dir('generator/tooling/target/classes')
+	outputs.file mcTooling.file('renderer/MinecraftRenderer/MinecraftRenderer.csproj')
+	commandLine pythonCommand, 'scripts/prepare_mc_tooling.py', '--output', mcTooling.asFile.absolutePath
+}
+
+tasks.register('generateMcResources', Exec) {
+	environment 'PYTHONDONTWRITEBYTECODE', '1'
+	dependsOn prepareMcTooling
+	inputs.property 'minecraft_version', mcVersion
+	def cachedClientJar = new File(gradle.gradleUserHomeDir, "caches/fabric-loom/${mcVersion}/minecraft-client.jar")
+	inputs.files providers.provider { cachedClientJar.isFile() ? [cachedClientJar] : [] }
+	inputs.files file('scripts/generate_mc_resources.py'), file('scripts/mc_metadata.py')
+	inputs.file file('scripts/prepare_mc_tooling.py')
+	inputs.files file('scripts/mc-atlas/toolchain.json'), file('scripts/mc-atlas/aliases.json'), file('scripts/mc-atlas/tooling.patch')
+	inputs.file file('scripts/mc-atlas/texture-aliases.json')
+	outputs.dir mcResources
+	localState.register(layout.buildDirectory.dir('mc/work'))
 	environment 'GRADLE_USER_HOME', gradle.gradleUserHomeDir.absolutePath
-	if (isWindows) {
-		commandLine 'cmd', '/c', 'python', 'scripts/extract_mc_textures.py', '--version', version
-	} else {
-		commandLine 'python3', 'scripts/extract_mc_textures.py', '--version', version
-	}
+	commandLine pythonCommand, 'scripts/generate_mc_resources.py', '--version', mcVersion,
+		'--tooling', mcTooling.asFile.absolutePath,
+		'--output', mcResources.get().asFile.absolutePath,
+		'--work', layout.buildDirectory.dir('mc/work').get().asFile.absolutePath
+	def forceResources = providers.gradleProperty('force_mc_resources').getOrElse('false').toBoolean()
+	outputs.upToDateWhen { !forceResources }
+	if (forceResources) args '--force'
+}
+
+tasks.register('testMcResources', Exec) {
+	environment 'PYTHONDONTWRITEBYTECODE', '1'
+	commandLine pythonCommand, '-m', 'unittest', 'discover', '-s', 'scripts', '-p', 'test_mc_resources.py'
+}
+
+tasks.named('check') {
+	dependsOn testMcResources
 }
 
 tasks.register('yarnBuild', Exec) {
-	dependsOn yarnInstall, extractMcTextures
+	dependsOn yarnInstall, generateMcResources
 	workingDir file('web')
 	if (isWindows) {
 		commandLine 'cmd', '/c', 'corepack', 'yarn', 'build'
@@ -97,13 +126,24 @@ tasks.register('yarnBuild', Exec) {
 		commandLine 'corepack', 'yarn', 'build'
 	}
 	inputs.dir file('web/src')
-	inputs.dir file('web/static')
-	inputs.files file('web/package.json'), file('web/yarn.lock'), file('web/vite.config.ts'), file('web/tsconfig.json'), file('web/src/app.html')
-	outputs.dir file('web/build')
+	inputs.files fileTree('web/static') { exclude 'mc/**' }
+	inputs.dir mcResources
+	inputs.property 'minecraft_version', mcVersion
+	inputs.files file('web/package.json'), file('web/yarn.lock'), file('web/vite.config.ts'), file('web/tsconfig.base.json'), file('web/build-paths.js'), file('web/scripts/run.mjs'), file('web/src/app.html')
+	environment 'MC_VERSION', mcVersion
+	environment 'MC_RESOURCES_DIR', mcResources.get().asFile.absolutePath
+	environment 'WEB_BUILD_DIR', webOutput.get().asFile.absolutePath
+	outputs.dir webOutput
+	localState.register(layout.buildDirectory.dir('svelte-kit'))
 }
 
 processResources {
 	dependsOn yarnBuild
+	// ProcessResources copies new files but does not remove obsolete hashed assets.
+	// Clear only the generated frontend subtree so old PNGs never remain in the JAR.
+	doFirst {
+		delete layout.buildDirectory.dir('resources/main/assets/mc-stats-webui/web')
+	}
 	def version = project.version
 	def minecraftVersion = project.minecraft_version
 	inputs.property "version", version
@@ -113,7 +153,7 @@ processResources {
 		expand "version": version, "minecraft_version": minecraftVersion
 	}
 
-	from('web/build') {
+	from(webOutput) {
 		into 'assets/mc-stats-webui/web'
 	}
 

@@ -1,12 +1,7 @@
-import { i18n, t, tDynamic, type Locale } from '$lib/i18n/i18n.svelte';
-import en from '$lib/mc/lang/en.json';
-import es from '$lib/mc/lang/es.json';
-import fr from '$lib/mc/lang/fr.json';
-import zhCN from '$lib/mc/lang/zh-CN.json';
+import { i18n, t, tDynamic } from '$lib/i18n/i18n.svelte';
+import { minecraftTranslations as vanillaTranslations } from '$lib/mc/lang';
 import type { MessageKey } from '$lib/i18n/messages/es';
 import type { VanillaStat } from '$lib/types';
-
-const vanillaTranslations: Record<Locale, Record<string, string>> = { en, es, fr, 'zh-CN': zhCN };
 
 export const vanillaGroups = [
 	'custom',

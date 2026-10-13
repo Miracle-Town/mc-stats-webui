@@ -1,0 +1,325 @@
+diff --git a/tooling/pom.xml b/tooling/pom.xml
+index 213781d..23869a7 100644
+--- a/tooling/pom.xml
++++ b/tooling/pom.xml
+@@ -18,7 +18,7 @@
+         <dependency>
+             <groupId>com.github.SkyBlock-Nerds</groupId>
+             <artifactId>Marmalade</artifactId>
+-            <version>master-SNAPSHOT</version>
++            <version>master-14bad17b90-1</version>
+         </dependency>
+         <dependency>
+             <groupId>com.google.code.gson</groupId>
+diff --git a/tooling/src/main/java/net/aerh/imagegenerator/tooling/ToolingConstants.java b/tooling/src/main/java/net/aerh/imagegenerator/tooling/ToolingConstants.java
+index 18bfa7a..b075138 100644
+--- a/tooling/src/main/java/net/aerh/imagegenerator/tooling/ToolingConstants.java
++++ b/tooling/src/main/java/net/aerh/imagegenerator/tooling/ToolingConstants.java
+@@ -12,14 +12,14 @@ import java.util.stream.Stream;
+ public final class ToolingConstants {
+ 
+     // Build directories
+-    public static final Path BUILD_DIR = Path.of("tooling/build");
++    public static final Path BUILD_DIR = Path.of(System.getProperty("mc.workDir", "tooling/build"));
+     public static final Path MINECRAFT_ASSETS = BUILD_DIR.resolve("minecraft-assets");
+     public static final Path RENDERED_ITEMS = BUILD_DIR.resolve("rendered-items");
+     public static final Path JAR_CACHE = BUILD_DIR.resolve("minecraft-jars");
+     public static final Path MAPPINGS_CACHE = BUILD_DIR.resolve("minecraft-mappings");
+-    public static final Path RENDERER_CLONE = BUILD_DIR.resolve("MinecraftRenderer");
++    public static final Path RENDERER_CLONE = Path.of(System.getProperty("mc.rendererDir", BUILD_DIR.resolve("MinecraftRenderer").toString()));
+     // Generator output paths
+-    public static final String GENERATOR_RESOURCES = "generator/src/main/resources/minecraft/assets";
++    public static final String GENERATOR_RESOURCES = System.getProperty("mc.outputDir", "generator/src/main/resources/minecraft/assets");
+     public static final String GENERATOR_SPRITESHEETS = GENERATOR_RESOURCES + "/spritesheets";
+     public static final String GENERATOR_JSON = GENERATOR_RESOURCES + "/json";
+     // Debug flag
+diff --git a/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/ItemRenderer.java b/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/ItemRenderer.java
+index 433a153..73a700e 100644
+--- a/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/ItemRenderer.java
++++ b/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/ItemRenderer.java
+@@ -63,16 +63,8 @@ public class ItemRenderer {
+     public void setup(boolean forceReclone, boolean forceRebuild) throws IOException, InterruptedException {
+         checkPrerequisites();
+ 
+-        if (forceReclone && Files.exists(repoPath)) {
+-            System.out.println("Force re-clone requested, deleting existing repository...");
+-            ToolingConstants.deleteDirectory(repoPath);
+-        }
+-
+         if (!isCloned()) {
+-            cloneRepository();
+-        } else {
+-            System.out.println("Repository already cloned at: " + repoPath);
+-            pullLatest();
++            throw new IOException("Pinned MinecraftRenderer checkout missing: " + repoPath);
+         }
+ 
+         if (forceRebuild || !isBuilt()) {
+@@ -127,7 +119,7 @@ public class ItemRenderer {
+      * Checks if the project has been built.
+      */
+     public boolean isBuilt() {
+-        return Files.exists(repoPath.resolve("CreateAtlases/bin"));
++        return Files.exists(repoPath.resolve("MinecraftRenderer/bin/Release/net10.0/MinecraftRenderer.dll"));
+     }
+ 
+     /**
+@@ -167,12 +159,12 @@ public class ItemRenderer {
+     private void buildProject() throws IOException, InterruptedException {
+         System.out.println("Building MinecraftRenderer...");
+ 
+-        ProcessBuilder restorePb = new ProcessBuilder("dotnet", "restore");
++        ProcessBuilder restorePb = new ProcessBuilder("dotnet", "restore", "MinecraftRenderer/MinecraftRenderer.csproj");
+         restorePb.directory(repoPath.toFile());
+         runProcess(restorePb, "Failed to restore .NET dependencies");
+ 
+         ProcessBuilder buildPb = new ProcessBuilder(
+-            "dotnet", "build",
++            "dotnet", "build", "MinecraftRenderer/MinecraftRenderer.csproj", "--framework", "net10.0",
+             "--configuration", "Release",
+             "--no-restore"
+         );
+diff --git a/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/MinecraftAssetTool.java b/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/MinecraftAssetTool.java
+index 2b05223..b32504f 100644
+--- a/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/MinecraftAssetTool.java
++++ b/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/MinecraftAssetTool.java
+@@ -231,9 +231,7 @@ public class MinecraftAssetTool {
+         System.out.println("-".repeat(40));
+ 
+         if (!isDotNetAvailable()) {
+-            System.out.println("WARNING: .NET SDK not found. Skipping render step.");
+-            System.out.println("Install .NET SDK 10.0+ from https://dotnet.microsoft.com/download");
+-            return;
++            throw new IOException(".NET SDK 10.0+ is required for rendering");
+         }
+ 
+         if (Files.exists(ToolingConstants.RENDERED_ITEMS)) {
+@@ -248,10 +246,7 @@ public class MinecraftAssetTool {
+             renderer.setup(forceReclone, forceRebuild);
+             renderer.renderAllItems(ToolingConstants.RENDERED_ITEMS, minecraftVersion, renderSize);
+         } catch (Exception e) {
+-            System.out.println("WARNING: Renderer failed: " + e.getMessage());
+-            if (debug) {
+-                e.printStackTrace();
+-            }
++            throw new IOException("Renderer failed", e);
+         }
+     }
+ 
+diff --git a/tooling/src/main/java/net/aerh/imagegenerator/tooling/spritesheet/AtlasGenerator.java b/tooling/src/main/java/net/aerh/imagegenerator/tooling/spritesheet/AtlasGenerator.java
+index d427c0d..97d4729 100644
+--- a/tooling/src/main/java/net/aerh/imagegenerator/tooling/spritesheet/AtlasGenerator.java
++++ b/tooling/src/main/java/net/aerh/imagegenerator/tooling/spritesheet/AtlasGenerator.java
+@@ -21,7 +21,9 @@ import java.util.Map;
+  */
+ public abstract class AtlasGenerator {
+ 
+-    protected static final int IMAGE_SIZE = 256;
++    protected static final int IMAGE_SIZE = Integer.getInteger("mc.tileSize", 64);
++    protected static final int PADDING = 1;
++    protected static final int PITCH = IMAGE_SIZE + 2 * PADDING;
+     protected static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+ 
+     protected final int atlasWidth;
+@@ -47,21 +49,27 @@ public abstract class AtlasGenerator {
+         System.out.println("Loaded " + entries.size() + " textures.");
+ 
+         if (entries.isEmpty()) {
+-            System.err.println("No textures to pack!");
+-            return;
++            throw new IllegalStateException("No textures to pack!");
++        }
++        if (IMAGE_SIZE <= 0 || atlasWidth < PITCH) {
++            throw new IllegalArgumentException("Invalid atlas dimensions");
++        }
++        int perRow = atlasWidth / PITCH;
++        int perPage = perRow * perRow;
++        for (int offset = 0, page = 0; offset < entries.size(); offset += perPage, page++) {
++            List<AtlasEntry> batch = entries.subList(offset, Math.min(entries.size(), offset + perPage));
++            for (AtlasEntry entry : batch) entry.page = page;
++            saveAtlas(packAtlas(batch), page);
+         }
+-
+-        BufferedImage atlas = packAtlas(entries);
+-        saveAtlas(atlas);
+         saveCoordinatesJson(entries);
+ 
+         System.out.println("Atlas generation complete!");
+     }
+ 
+     protected BufferedImage packAtlas(List<AtlasEntry> entries) {
+-        int texturesPerRow = atlasWidth / IMAGE_SIZE;
++        int texturesPerRow = atlasWidth / PITCH;
+         int rows = (entries.size() + texturesPerRow - 1) / texturesPerRow;
+-        int atlasHeight = rows * IMAGE_SIZE;
++        int atlasHeight = rows * PITCH;
+ 
+         BufferedImage atlas = new BufferedImage(atlasWidth, atlasHeight, BufferedImage.TYPE_INT_ARGB);
+         int[] atlasPixels = ((DataBufferInt) atlas.getRaster().getDataBuffer()).getData();
+@@ -70,8 +78,8 @@ public abstract class AtlasGenerator {
+             AtlasEntry entry = entries.get(i);
+             int col = i % texturesPerRow;
+             int row = i / texturesPerRow;
+-            entry.x = col * IMAGE_SIZE;
+-            entry.y = row * IMAGE_SIZE;
++            entry.x = col * PITCH + PADDING;
++            entry.y = row * PITCH + PADDING;
+ 
+             int[] texturePixels = ((DataBufferInt) entry.image.getRaster().getDataBuffer()).getData();
+             for (int py = 0; py < IMAGE_SIZE; py++) {
+@@ -88,21 +96,19 @@ public abstract class AtlasGenerator {
+         return atlas;
+     }
+ 
+-    protected void saveAtlas(BufferedImage atlas) {
+-        File outputFile = new File(atlasOutputPath);
++    protected void saveAtlas(BufferedImage atlas, int page) {
++        File outputFile = new File(atlasOutputPath.replace(".png", "-" + page + ".png"));
+         File parentDir = outputFile.getParentFile();
+         if (!parentDir.exists() && !parentDir.mkdirs()) {
+-            System.err.println("Failed to create directory: " + parentDir.getAbsolutePath());
+-            return;
++            throw new IllegalStateException("Failed to create directory: " + parentDir);
+         }
+ 
+         try {
+             System.out.println("Saving atlas to: " + outputFile.getAbsolutePath());
+-            ImageIO.write(atlas, "png", outputFile);
++            if (!ImageIO.write(atlas, "png", outputFile)) throw new IOException("PNG writer unavailable");
+             System.out.println("Atlas saved successfully!");
+         } catch (IOException e) {
+-            System.err.println("Failed to save atlas: " + e.getMessage());
+-            e.printStackTrace();
++            throw new IllegalStateException("Failed to save atlas", e);
+         }
+     }
+ 
+@@ -110,8 +116,7 @@ public abstract class AtlasGenerator {
+         File jsonFile = new File(jsonOutputPath);
+         File parentDir = jsonFile.getParentFile();
+         if (!parentDir.exists() && !parentDir.mkdirs()) {
+-            System.err.println("Failed to create directory: " + parentDir.getAbsolutePath());
+-            return;
++            throw new IllegalStateException("Failed to create directory: " + parentDir);
+         }
+ 
+         JsonArray jsonArray = new JsonArray();
+@@ -123,8 +128,7 @@ public abstract class AtlasGenerator {
+             GSON.toJson(jsonArray, writer);
+             System.out.println("Coordinates JSON saved to: " + jsonFile.getAbsolutePath());
+         } catch (IOException e) {
+-            System.err.println("Failed to save coordinates JSON: " + e.getMessage());
+-            e.printStackTrace();
++            throw new IllegalStateException("Failed to save coordinates JSON", e);
+         }
+     }
+ 
+@@ -135,6 +139,7 @@ public abstract class AtlasGenerator {
+         public final String name;
+         public final BufferedImage image;
+         public final Map<String, String> metadata;
++        public int page;
+         public int x;
+         public int y;
+ 
+diff --git a/tooling/src/main/java/net/aerh/imagegenerator/tooling/spritesheet/SpritesheetGenerator.java b/tooling/src/main/java/net/aerh/imagegenerator/tooling/spritesheet/SpritesheetGenerator.java
+index ceb579a..d1262f6 100644
+--- a/tooling/src/main/java/net/aerh/imagegenerator/tooling/spritesheet/SpritesheetGenerator.java
++++ b/tooling/src/main/java/net/aerh/imagegenerator/tooling/spritesheet/SpritesheetGenerator.java
+@@ -20,7 +20,7 @@ import java.util.Set;
+  */
+ public class SpritesheetGenerator extends AtlasGenerator {
+ 
+-    private static final int ATLAS_WIDTH = IMAGE_SIZE * 16;
++    private static final int ATLAS_WIDTH = Integer.getInteger("mc.atlasWidth", 2048);
+     private static final String[] ARMOR_TYPES = {"helmet", "chestplate", "leggings", "boots"};
+ 
+     private final String inputPath;
+@@ -103,8 +103,7 @@ public class SpritesheetGenerator extends AtlasGenerator {
+ 
+             BufferedImage image = loadImage(file);
+             if (image == null) {
+-                System.err.println("Failed to load: " + file.getName());
+-                continue;
++                throw new IllegalStateException("Failed to load: " + file);
+             }
+ 
+             try {
+@@ -117,8 +116,7 @@ public class SpritesheetGenerator extends AtlasGenerator {
+ 
+                 textures.add(new AtlasEntry(name, processed));
+             } catch (Exception e) {
+-                System.err.println("Failed to process: " + file.getName());
+-                e.printStackTrace();
++                throw new IllegalStateException("Failed to process: " + file, e);
+             }
+         }
+ 
+@@ -145,6 +143,7 @@ public class SpritesheetGenerator extends AtlasGenerator {
+     protected JsonObject entryToJson(AtlasEntry entry) {
+         JsonObject obj = new JsonObject();
+         obj.addProperty("name", entry.name);
++        obj.addProperty("page", entry.page);
+         obj.addProperty("x", entry.x);
+         obj.addProperty("y", entry.y);
+         obj.addProperty("size", IMAGE_SIZE);
+diff --git a/tooling/src/main/resources/renderer/Program.cs b/tooling/src/main/resources/renderer/Program.cs
+index b566165..dbab6ea 100644
+--- a/tooling/src/main/resources/renderer/Program.cs
++++ b/tooling/src/main/resources/renderer/Program.cs
+@@ -1,6 +1,7 @@
+ using MinecraftRenderer;
+ using SixLabors.ImageSharp;
+ using SixLabors.ImageSharp.Formats.Png;
++using SixLabors.ImageSharp.PixelFormats;
+ 
+ var dataPath = @"{{DATA_PATH}}";
+ var outputPath = @"{{OUTPUT_PATH}}";
+@@ -42,6 +43,9 @@ var filteredCount = knownItems.Count - filteredItems.Count();
+ 
+ var allNames = filteredItems
+     .Concat(knownBlocks)
++    .Where(name => File.Exists(Path.Combine(dataPath, "items", name + ".json")) ||
++                   File.Exists(Path.Combine(dataPath, "blockstates", name + ".json")))
++    .Where(name => !name.Contains("_wall_sign") && !name.Contains("_wall_hanging_sign"))
+     .Distinct(StringComparer.OrdinalIgnoreCase)
+     .OrderBy(n => n)
+     .ToList();
+@@ -72,7 +76,31 @@ for (var i = 0; i < allNames.Count; i++)
+ 
+     try
+     {
+-        using var image = renderer.RenderItem(name, options);
++        using var image = name switch
++        {
++            "water" => renderer.RenderGuiItemFromTextureId("minecraft:block/water_still", options),
++            "lava" => renderer.RenderGuiItemFromTextureId("minecraft:block/lava_still", options),
++            "fire" => renderer.RenderGuiItemFromTextureId("minecraft:block/fire_0", options),
++            "soul_fire" => renderer.RenderGuiItemFromTextureId("minecraft:block/soul_fire_0", options),
++            _ => renderer.RenderItem(name, options)
++        };
++        int visible = 0, missing = 0;
++        image.ProcessPixelRows(accessor =>
++        {
++            for (var y = 0; y < accessor.Height; y++)
++            {
++                foreach (var pixel in accessor.GetRowSpan(y))
++                {
++                    if (pixel.A == 0) continue;
++                    visible++;
++                    if (pixel.R > 20 && pixel.R == pixel.B && pixel.G == 0) missing++;
++                }
++            }
++        });
++        // Missing-texture checkerboards are shaded by the renderer; their red
++        // and blue channels stay equal and their green channel stays zero.
++        if (missing > 0 && missing * 50 > visible)
++            throw new InvalidOperationException("Missing texture checkerboard in rendered icon");
+         image.Save(outputFile, encoder);
+         rendered++;
+     }
+@@ -87,3 +115,4 @@ for (var i = 0; i < allNames.Count; i++)
+ 
+ Console.WriteLine($"\n\n[{new string('█', barWidth)}] 100.0% | Complete!\n");
+ Console.WriteLine($"Rendered: {rendered} | Failed: {failed}");
++if (failed > 0 || rendered == 0) Environment.Exit(1);

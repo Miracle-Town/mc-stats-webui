@@ -1,50 +1,26 @@
 <script lang="ts">
-	import { itemLetter, itemTextureUrls } from '$lib/mc/items';
+	import { itemLetter, itemSprite } from '$lib/mc/items';
+	import { atlasStatus, loadAtlas } from '$lib/mc/atlas.svelte';
 
 	let { id, compact = false }: { id: string; compact?: boolean } = $props();
-	let attempt = $state(0);
-	let ready = $state(false);
-	let imgEl = $state<HTMLImageElement | undefined>();
+	const sprite = $derived(itemSprite(id));
+	const displaySize = $derived(compact ? 1.5 : 2.25);
+	const ready = $derived(sprite && atlasStatus(sprite.url) === 'ready');
 
 	$effect(() => {
-		void id;
-		attempt = 0;
-		ready = false;
-	});
-
-	const urls = $derived(itemTextureUrls(id));
-	const src = $derived(urls[attempt]);
-
-	$effect(() => {
-		const el = imgEl;
-		void src;
-		if (el && el.complete && el.naturalWidth > 0) {
-			ready = true;
-		}
+		if (sprite) loadAtlas(sprite.url);
 	});
 </script>
 
-<span class="frame" class:compact>
-	{#if src}
-		<img
-			bind:this={imgEl}
+<span class="frame" class:compact aria-hidden="true">
+	{#if sprite && ready}
+		<span
 			class="icon"
-			class:ready
 			class:compact
-			src={src}
-			alt=""
-			width="32"
-			height="32"
-			decoding="async"
-			loading="lazy"
-			onload={() => {
-				ready = true;
-			}}
-			onerror={() => {
-				ready = false;
-				attempt += 1;
-			}}
-		/>
+			style:background-image={`url("${sprite.url}")`}
+			style:background-size={`${sprite.width / sprite.size * displaySize}rem ${sprite.height / sprite.size * displaySize}rem`}
+			style:background-position={`${-sprite.x / sprite.size * displaySize}rem ${-sprite.y / sprite.size * displaySize}rem`}
+		></span>
 	{:else}
 		<span class="letter" class:compact>{itemLetter(id)}</span>
 	{/if}
@@ -69,13 +45,9 @@
 		width: 2.25rem;
 		height: 2.25rem;
 		image-rendering: pixelated;
+		background-repeat: no-repeat;
 		flex-shrink: 0;
 		display: block;
-		opacity: 0;
-	}
-
-	.icon.ready {
-		opacity: 1;
 	}
 
 	.letter {

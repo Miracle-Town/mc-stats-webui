@@ -1,0 +1,9 @@
+{
+  "minecraft:air": "minecraft:barrier",
+  "minecraft:cave_air": "minecraft:barrier",
+  "minecraft:void_air": "minecraft:barrier",
+  "minecraft:player": "minecraft:player_head",
+  "minecraft:potatoes": "minecraft:potato",
+  "minecraft:carrots": "minecraft:carrot",
+  "minecraft:beetroots": "minecraft:beetroot"
+}

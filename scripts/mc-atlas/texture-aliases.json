@@ -1,0 +1,7 @@
+{
+  "entity/shield_base_nopattern": "entity/shield/shield_base_nopattern",
+  "entity/banner_base": "entity/banner/banner_base",
+  "entity/copper_golem/exposed_copper_golem": "entity/copper_golem/copper_golem_exposed",
+  "entity/copper_golem/weathered_copper_golem": "entity/copper_golem/copper_golem_weathered",
+  "entity/copper_golem/oxidized_copper_golem": "entity/copper_golem/copper_golem_oxidized"
+}

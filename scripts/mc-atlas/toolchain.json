@@ -1,0 +1,8 @@
+{
+  "generator": "0f5b500857f29dc40226e16737e503f4eefdb04d",
+  "renderer": "f8e02d7267867821e01094dcd4649c68b0750b2e",
+  "marmalade": "master-14bad17b90-1",
+  "imageSharp": "3.1.12",
+  "tileSize": 64,
+  "atlasWidth": 2048
+}
