@@ -129,7 +129,7 @@ tasks.register('yarnBuild', Exec) {
 	inputs.files fileTree('web/static') { exclude 'mc/**' }
 	inputs.dir mcResources
 	inputs.property 'minecraft_version', mcVersion
-	inputs.files file('web/package.json'), file('web/yarn.lock'), file('web/vite.config.ts'), file('web/tsconfig.base.json'), file('web/build-paths.js'), file('web/scripts/run.mjs'), file('web/src/app.html')
+	inputs.files file('web/package.json'), file('web/yarn.lock'), file('web/vite.config.ts'), file('web/tsconfig.json'), file('web/tsconfig.base.json'), file('web/build-paths.js'), file('web/scripts/run.mjs'), file('web/src/app.html')
 	environment 'MC_VERSION', mcVersion
 	environment 'MC_RESOURCES_DIR', mcResources.get().asFile.absolutePath
 	environment 'WEB_BUILD_DIR', webOutput.get().asFile.absolutePath

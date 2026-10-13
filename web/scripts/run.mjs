@@ -37,6 +37,14 @@ writeFileSync(paths.tsconfig, JSON.stringify({
 	extends: [path.join(paths.kitOutput, 'tsconfig.json'), path.join(webRoot, 'tsconfig.base.json')]
 }, null, 2) + '\n');
 
+// Keep the conventional editor entry while the actual framework files stay
+// in the selected version's build directory. This ignored file is only a pointer.
+const editorConfigDir = path.join(webRoot, '.svelte-kit');
+mkdirSync(editorConfigDir, { recursive: true });
+writeFileSync(path.join(editorConfigDir, 'tsconfig.json'), JSON.stringify({
+	extends: path.relative(editorConfigDir, path.join(paths.kitOutput, 'tsconfig.json')).split(path.sep).join('/')
+}, null, 2) + '\n');
+
 function run(binary, parameters) {
 	const script = path.join(webRoot, 'node_modules', ...binary.split('/'));
 	const result = spawnSync(process.execPath, [script, ...parameters], { cwd: webRoot, stdio: 'inherit' });

@@ -139,8 +139,10 @@ dependency; the pipeline processes vanilla resources from Mojang, and the depend
 is not included in the Mod. Upgrading it requires a compatible licensed toolchain.
 
 Frontend commands use `web/tsconfig.base.json` and generate the effective TypeScript
-config at `build/<version>/tsconfig.web.json`. Resource-cache regression checks run
-as part of `./gradlew check`.
+config at `build/<version>/tsconfig.web.json`. The tracked `web/tsconfig.json` is the
+editor entry; `yarn prepare`, `dev`, `build` and `check` refresh an ignored
+`web/.svelte-kit/tsconfig.json` pointer to the selected version's framework config.
+Resource-cache regression checks run as part of `./gradlew check`.
 
 CI builds all three versions on pull requests, pushes to `main`, and release tags.
 A tag such as `v1.2.2` releases all three JARs; an existing version-specific tag such
