@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { page } from '$app/state';
 	import AdvancementTiles from '$lib/components/AdvancementTiles.svelte';
 	import BackNav from '$lib/components/BackNav.svelte';
@@ -252,7 +253,7 @@
 							aria-expanded={isAdvancementOpen(section.tab.id)}
 							onclick={() => toggleAdvancementTab(section.tab.id)}
 						>
-							<span class="chevron" class:open={isAdvancementOpen(section.tab.id)}>▸</span>
+							<span class="chevron" class:open={isAdvancementOpen(section.tab.id)}><Icon name="foldChevron" /></span>
 							<span class="pack-title">
 								<McItem id={section.tab.icon} compact />
 								{advancementTabTitle(section.tab.id, section.tab.title)}
@@ -284,7 +285,7 @@
 						aria-expanded={isOpen(group)}
 						onclick={() => toggleGroup(group)}
 					>
-						<span class="chevron" class:open={isOpen(group)}>▸</span>
+						<span class="chevron" class:open={isOpen(group)}><Icon name="foldChevron" /></span>
 						<span class="pack-title">
 							{tDynamic('player.group', group)}
 							<span class="count">{t('player.shown', { shown: shown.length, total: rows.length })}</span>
@@ -519,7 +520,7 @@
 
 	.fold {
 		display: inline-flex;
-		align-items: baseline;
+		align-items: center;
 		gap: 0.4rem;
 		min-height: 0;
 		padding: 0;
@@ -542,8 +543,15 @@
 	}
 
 	.chevron {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.05rem;
+		height: 1.05rem;
+		flex-shrink: 0;
+		line-height: 0;
 		color: var(--color-gold);
+		transform-origin: 50% 50%;
 		transform: rotate(0deg);
 		transition: transform 0.12s linear;
 	}

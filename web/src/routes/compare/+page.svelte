@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { advancementTitle, matchesAdvancementQuery } from '$lib/advancements';
@@ -708,7 +709,7 @@
 						aria-expanded={exclusiveExpanded()}
 						onclick={toggleExclusive}
 					>
-						<span class="chevron" class:open={exclusiveExpanded()}>▸</span>
+						<span class="chevron" class:open={exclusiveExpanded()}><Icon name="foldChevron" /></span>
 						<span>
 							{t('compare.advancementsDiff')}
 							<span class="count"
@@ -761,7 +762,7 @@
 						aria-expanded={isOpen(section.id)}
 						onclick={() => toggleVanilla(section.id)}
 					>
-						<span class="chevron" class:open={isOpen(section.id)}>▸</span>
+						<span class="chevron" class:open={isOpen(section.id)}><Icon name="foldChevron" /></span>
 						<span>
 							{section.title}
 							<span class="count">{t('player.shown', { shown: section.rows.length, total: section.total })}</span>
@@ -877,7 +878,7 @@
 
 	.fold {
 		display: inline-flex;
-		align-items: baseline;
+		align-items: center;
 		gap: 0.4rem;
 		min-height: 0;
 		padding: 0;
@@ -904,9 +905,15 @@
 	}
 
 	.chevron {
-		display: inline-block;
-		width: 1rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.05rem;
+		height: 1.05rem;
+		flex-shrink: 0;
+		line-height: 0;
 		color: var(--color-gold);
+		transform-origin: 50% 50%;
 		transform: rotate(0deg);
 		transition: transform 0.12s linear;
 	}

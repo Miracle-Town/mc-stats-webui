@@ -43,6 +43,10 @@
 	<svg viewBox="0 0 24 24" aria-hidden="true">
 		<path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
 	</svg>
+{:else if name === 'foldChevron'}
+	<svg viewBox="0 0 24 24" aria-hidden="true">
+		<path d="M8 4 16 12 8 20Z" fill="currentColor" />
+	</svg>
 {:else if name === 'back'}
 	<svg viewBox="0 0 24 24" aria-hidden="true">
 		<path

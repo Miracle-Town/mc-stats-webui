@@ -3,6 +3,7 @@ export type IconName =
 	| 'moon'
 	| 'monitor'
 	| 'chevron'
+	| 'foldChevron'
 	| 'back'
 	| 'es'
 	| 'en'

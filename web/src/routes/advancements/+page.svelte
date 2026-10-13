@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '$lib/components/Icon.svelte';
 	import { advancementTabTitle, matchesAdvancementQuery } from '$lib/advancements';
 	import { boardHint, i18n, pageTitle, t } from '$lib/i18n/i18n.svelte';
 	import { getAdvancementMost, getAdvancements } from '$lib/api';
@@ -101,7 +102,7 @@
 						aria-expanded={isOpen(section.tab.id)}
 						onclick={() => toggleTab(section.tab.id)}
 					>
-						<span class="chevron" class:open={isOpen(section.tab.id)}>▸</span>
+						<span class="chevron" class:open={isOpen(section.tab.id)}><Icon name="foldChevron" /></span>
 						<span class="pack-title">
 							<McItem id={section.tab.icon} compact />
 							{advancementTabTitle(section.tab.id, section.tab.title)}
@@ -167,7 +168,7 @@
 
 	.fold {
 		display: inline-flex;
-		align-items: baseline;
+		align-items: center;
 		gap: 0.4rem;
 		min-height: 0;
 		padding: 0;
@@ -190,8 +191,15 @@
 	}
 
 	.chevron {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.05rem;
+		height: 1.05rem;
+		flex-shrink: 0;
+		line-height: 0;
 		color: var(--color-gold);
+		transform-origin: 50% 50%;
 		transform: rotate(0deg);
 		transition: transform 0.12s linear;
 	}
