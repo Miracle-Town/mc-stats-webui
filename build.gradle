@@ -114,6 +114,11 @@ processResources {
 	from('web/build') {
 		into 'assets/mc-stats-webui/web'
 	}
+
+	from('web/src/lib/assets/fonts') {
+		include 'Unifont-OFL-1.1.txt'
+		into 'assets/mc-stats-webui/web/fonts'
+	}
 }
 
 tasks.withType(JavaCompile).configureEach {

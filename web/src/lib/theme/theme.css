@@ -6,9 +6,19 @@
 	font-display: swap;
 }
 
+/* Minecraft uses GNU Unifont for glyphs missing from its Latin bitmap font. */
+@font-face {
+	font-family: 'Minecraft Unicode';
+	src: url('../assets/fonts/Unifont-CJK-17.0.01.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+	unicode-range: U+2000-206F, U+2E80-9FFF, U+F900-FAFF, U+FF00-FFEF;
+}
+
 :root,
 html[data-theme='dark'] {
-	--font-ui: 'Minecraft', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Courier New', monospace;
+	--font-ui: 'Minecraft', 'Minecraft Unicode', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Courier New', monospace;
 	--color-bg: #1b120c;
 	--color-fg: #ffffff;
 	--color-muted: #a0a0a0;
