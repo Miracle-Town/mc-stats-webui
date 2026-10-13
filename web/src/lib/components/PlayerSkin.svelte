@@ -422,6 +422,11 @@
 		color: var(--color-muted);
 	}
 
+	.body.podium .error,
+	.body.podium .stage :global(.loader.embed) {
+		transform: translateY(-1.5rem);
+	}
+
 	.actions {
 		position: absolute;
 		left: 0.45rem;
