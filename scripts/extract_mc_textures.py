@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "web" / "static" / "mc"
 ICONS = ROOT / "web" / "src" / "lib" / "mc" / "icons.json"
 ADVANCEMENT_LANG = ROOT / "web" / "src" / "lib" / "mc" / "advancementLang.json"
-ZH_CN_LANG = ROOT / "web" / "src" / "lib" / "mc" / "zh-CN.json"
+VANILLA_LANG_DIR = ROOT / "web" / "src" / "lib" / "mc" / "lang"
 INV_CACHE = ROOT / "scripts" / ".cache" / "invicons"
 MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
 ASSET_CDN = "https://resources.download.minecraft.net"
@@ -920,13 +920,14 @@ def write_advancement_lang(jar: zipfile.ZipFile, version: str) -> None:
 			if source in entries:
 				entries[key] = entries[source]
 		body[locale] = entries
-		if locale == "zh-CN":
-			ZH_CN_LANG.parent.mkdir(parents=True, exist_ok=True)
-			vanilla = {
-				key: value for key, value in data.items()
-				if key.startswith(("block.", "item.", "entity.", "stat.")) and isinstance(value, str)
-			}
-			ZH_CN_LANG.write_text(json.dumps(vanilla, indent="\t", ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
+		VANILLA_LANG_DIR.mkdir(parents=True, exist_ok=True)
+		vanilla = {
+			key: value for key, value in data.items()
+			if key.startswith(("block.", "item.", "entity.", "stat.")) and isinstance(value, str)
+		}
+		(VANILLA_LANG_DIR / f"{locale}.json").write_text(
+			json.dumps(vanilla, indent="\t", ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8"
+		)
 	ADVANCEMENT_LANG.parent.mkdir(parents=True, exist_ok=True)
 	ADVANCEMENT_LANG.write_text(json.dumps(body, indent="\t", ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
 	print(f"Wrote advancement lang to {ADVANCEMENT_LANG}")

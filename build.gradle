@@ -76,7 +76,9 @@ tasks.register('extractMcTextures', Exec) {
 	outputs.dir file('web/static/mc')
 	outputs.file file('web/src/lib/mc/icons.json')
 	outputs.file file('web/src/lib/mc/advancementLang.json')
-	outputs.file file('web/src/lib/mc/zh-CN.json')
+	['en', 'es', 'fr', 'zh-CN'].each { locale ->
+		outputs.file file("web/src/lib/mc/lang/${locale}.json")
+	}
 	environment 'MC_VERSION', version
 	environment 'GRADLE_USER_HOME', gradle.gradleUserHomeDir.absolutePath
 	if (isWindows) {

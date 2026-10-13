@@ -1,7 +1,12 @@
-import { i18n, t, tDynamic } from '$lib/i18n/i18n.svelte';
-import zhCN from '$lib/mc/zh-CN.json';
+import { i18n, t, tDynamic, type Locale } from '$lib/i18n/i18n.svelte';
+import en from '$lib/mc/lang/en.json';
+import es from '$lib/mc/lang/es.json';
+import fr from '$lib/mc/lang/fr.json';
+import zhCN from '$lib/mc/lang/zh-CN.json';
 import type { MessageKey } from '$lib/i18n/messages/es';
 import type { VanillaStat } from '$lib/types';
+
+const vanillaTranslations: Record<Locale, Record<string, string>> = { en, es, fr, 'zh-CN': zhCN };
 
 export const vanillaGroups = [
 	'custom',
@@ -170,14 +175,13 @@ export function humanizeId(id: string): string {
 }
 
 export function vanillaLabel(group: VanillaGroup, id: string): string {
-	if (i18n.locale === 'zh-CN') {
-		const [namespace, path] = id.split(':');
-		if (namespace === 'minecraft' && path) {
-			const name = `${namespace}.${path.replaceAll('/', '.')}`;
-			const kinds = group === 'custom' ? ['stat']
-				: group === 'killed' || group === 'killed_by' ? ['entity']
-				: group === 'mined' ? ['block'] : ['item', 'block'];
-			const translations = zhCN as Record<string, string>;
+	const [namespace, path] = id.split(':');
+	if (namespace === 'minecraft' && path) {
+		const name = `${namespace}.${path.replaceAll('/', '.')}`;
+		const kinds = group === 'custom' ? ['stat']
+			: group === 'killed' || group === 'killed_by' ? ['entity']
+			: group === 'mined' ? ['block'] : ['item', 'block'];
+		for (const translations of [vanillaTranslations[i18n.locale], vanillaTranslations.en]) {
 			for (const kind of kinds) {
 				const label = translations[`${kind}.${name}`];
 				if (label) {
