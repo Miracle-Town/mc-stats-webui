@@ -4,6 +4,7 @@
 	import AdvancementTiles from '$lib/components/AdvancementTiles.svelte';
 	import BackNav from '$lib/components/BackNav.svelte';
 	import Loader from '$lib/components/Loader.svelte';
+	import McCheckbox from '$lib/components/McCheckbox.svelte';
 	import McItem from '$lib/components/McItem.svelte';
 	import PlayerSkin from '$lib/components/PlayerSkin.svelte';
 	import RankingScore from '$lib/components/RankingScore.svelte';
@@ -236,10 +237,7 @@
 					total: player.advancements?.total || catalog.length
 				})}</span
 			>
-			<label class="toggle">
-				<input type="checkbox" bind:checked={hideLocked} />
-				{t('player.hideLocked')}
-			</label>
+			<McCheckbox bind:checked={hideLocked} label={t('player.hideLocked')} />
 		</div>
 		{#if advancementSections.length === 0}
 			<p class="muted">{player.advancements?.done ? t('player.noMatches') : t('player.noAdvancements')}</p>
@@ -291,10 +289,7 @@
 							<span class="count">{t('player.shown', { shown: shown.length, total: rows.length })}</span>
 						</span>
 					</button>
-					<label class="toggle">
-						<input type="checkbox" bind:checked={hideZeros[group]} />
-						{t('player.hideZeros')}
-					</label>
+					<McCheckbox bind:checked={hideZeros[group]} label={t('player.hideZeros')} />
 				</div>
 				{#if isOpen(group)}
 					{#if matched.length === 0}
@@ -578,14 +573,6 @@
 		font-size: 0.78rem;
 	}
 
-	.toggle {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
-		color: var(--color-muted);
-		font-size: 0.78rem;
-		cursor: pointer;
-	}
 
 	.tiles {
 		display: grid;
