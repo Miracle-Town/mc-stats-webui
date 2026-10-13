@@ -4,5 +4,9 @@
   "marmalade": "master-14bad17b90-1",
   "imageSharp": "4.1.3",
   "tileSize": 64,
-  "atlasWidth": 2048
+  "atlasWidth": 2048,
+  "webp": {
+    "quality": 100,
+    "method": 6
+  }
 }

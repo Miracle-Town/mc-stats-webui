@@ -53,6 +53,10 @@ def main() -> None:
         '<SixLaborsLicenseFile Condition="\'$(SIXLABORS_LICENSE_FILE)\' != \'\'">$(SIXLABORS_LICENSE_FILE)</SixLaborsLicenseFile>\n'
         '        <SixLaborsLicenseFile Condition="\'$(SIXLABORS_LICENSE_FILE)\' == \'\'">../sixlabors.lic</SixLaborsLicenseFile>')
     project.write_text(text, encoding="utf-8")
+    converter = output / "webp-converter"
+    converter.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT / "scripts/mc-atlas/WebpConverter.cs", converter / "Program.cs")
+    shutil.copyfile(ROOT / "scripts/mc-atlas/WebpConverter.csproj", converter / "WebpConverter.csproj")
     # Rebuild after any integration/toolchain change, including dependency patches.
     for relative in ("MinecraftRenderer/bin", "MinecraftRenderer/obj"):
         shutil.rmtree(renderer / relative, ignore_errors=True)

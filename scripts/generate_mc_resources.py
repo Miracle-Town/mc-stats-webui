@@ -133,20 +133,32 @@ def install_texture_aliases(assets: Path) -> None:
             shutil.copyfile(source, dest)
 
 
+def convert_atlases(raw: Path, output: Path, tooling: Path, lock: dict, env: dict) -> None:
+    project = tooling / "webp-converter/WebpConverter.csproj"
+    subprocess.run(["dotnet", "build", str(project), "--configuration", "Release", "--nologo"],
+                   cwd=ROOT, env=env, check=True)
+    assembly = tooling / "webp-converter/bin/Release/net10.0/WebpConverter.dll"
+    subprocess.run(["dotnet", str(assembly), str(raw / "spritesheets"), str(output / "atlas"),
+                    str(lock["webp"]["quality"]), str(lock["webp"]["method"])],
+                   cwd=ROOT, env=env, check=True)
+
+
 def build_index(raw: Path, output: Path, lock: dict, version: str) -> dict:
     entries = json.loads((raw / "json/atlas_coordinates.json").read_text())
     pages = sorted({entry["page"] for entry in entries})
     if pages != list(range(len(pages))) or not entries:
         raise ValueError("Atlas pages are empty or non-contiguous")
     atlases = []
-    (output / "atlas").mkdir(parents=True)
     for page in pages:
         source = raw / f"spritesheets/minecraft_texture_atlas-{page}.png"
         width, height = png_size(source)
         if width > lock["atlasWidth"] or height > lock["atlasWidth"]:
             raise ValueError(f"Oversized atlas: {source}")
-        name = f"items-{page}.png"
-        shutil.copyfile(source, output / "atlas" / name)
+        name = f"items-{page}.webp"
+        with (output / "atlas" / name).open("rb") as stream:
+            header = stream.read(12)
+        if header[:4] != b"RIFF" or header[8:12] != b"WEBP":
+            raise ValueError(f"Invalid converted WebP atlas: {name}")
         atlases.append({"file": f"atlas/{name}", "width": width, "height": height})
     sprites = {}
     for entry in entries:
@@ -245,6 +257,7 @@ def main() -> None:
     env["NUGET_PACKAGES"] = str(tooling / "nuget-cache")
     configure_license(env)
     subprocess.run(command, cwd=ROOT, env=env, check=True)
+    convert_atlases(raw, staging, tooling, lock, env)
     index = build_index(raw, staging, lock, args.version)
     files = {str(path.relative_to(staging)): hashlib.sha256(path.read_bytes()).hexdigest()
              for path in sorted(staging.rglob("*")) if path.is_file()}

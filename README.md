@@ -92,6 +92,10 @@ sequentially in one checkout because Gradle/Loom and the toolchain share build s
 
 Packaging automatically runs the pinned [MinecraftImageGenerator](https://github.com/Aerhhh/MinecraftImageGenerator)
 tooling to render icons and pack 64px sprites into atlases of at most 2048×2048px.
+The PNG atlases are converted to lossless WebP with the existing ImageSharp dependency;
+the converter decodes each result and verifies every RGBA pixel before publishing.
+PNG intermediates stay in `mc/work/`, while `mc/generated/atlas/` contains WebP files.
+Vite imports them through `?url` and emits hashed WebP assets into the packaged UI.
 Each sprite has a 1px transparent gutter. `McItem` reads generated coordinates and
 shares one image load per atlas; unknown IDs use a letter placeholder without probing PNG URLs.
 Rendering, language extraction and atlas generation happen only in the build pipeline,
@@ -126,6 +130,9 @@ From the repository root, force regeneration with:
 ```
 
 `scripts/mc-atlas/toolchain.json` locks generator, renderer and dependency versions;
+it also sets the lossless WebP compression effort (`webp.quality` and `webp.method`).
+Changing these values or the converter invalidates the resource cache. Page/CSS edits
+reuse the existing WebP files without running conversion again.
 `tooling.patch` supplies configurable output paths, atlas paging and strict rendering
 failures. The integration adapts 26.3 texture-reference objects and moved vanilla
 texture paths, and resolves entity/wall-block aliases at build time. Required icons,
