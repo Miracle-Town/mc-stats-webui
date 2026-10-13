@@ -13,7 +13,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public final class WebConfig {
 	public static final int DEFAULT_PORT = 25580;
@@ -22,6 +24,8 @@ public final class WebConfig {
 	public static final String DEFAULT_TITLE = "Ranking";
 	public static final String DEFAULT_SLOGAN = "Server stats.";
 	public static final String DEFAULT_TAGLINE = "by borrageiros";
+	public static final String DEFAULT_ICON = "";
+	private static final Set<String> ICON_EXTENSIONS = Set.of("png", "ico", "svg", "webp", "jpg", "jpeg", "gif");
 	public static final String DEFAULT_WINDOW_TITLE = "{page} - Server Ranking";
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
@@ -33,6 +37,7 @@ public final class WebConfig {
 	private final String slogan;
 	private final String tagline;
 	private final String windowTitle;
+	private final String icon;
 
 	public WebConfig(
 		String bind,
@@ -43,6 +48,19 @@ public final class WebConfig {
 		String tagline,
 		String windowTitle
 	) {
+		this(bind, port, world, title, slogan, tagline, windowTitle, DEFAULT_ICON);
+	}
+
+	public WebConfig(
+		String bind,
+		int port,
+		String world,
+		String title,
+		String slogan,
+		String tagline,
+		String windowTitle,
+		String icon
+	) {
 		this.bind = bind;
 		this.port = port;
 		this.world = world;
@@ -50,6 +68,7 @@ public final class WebConfig {
 		this.slogan = slogan;
 		this.tagline = tagline;
 		this.windowTitle = windowTitle;
+		this.icon = icon;
 	}
 
 	public String bind() {
@@ -80,6 +99,20 @@ public final class WebConfig {
 		return windowTitle;
 	}
 
+	public String icon() {
+		return icon;
+	}
+
+	public static Path directory() {
+		return FabricLoader.getInstance().getConfigDir().resolve("mc-stats-webui");
+	}
+
+	public Path iconPath() {
+		return icon.isEmpty()
+			? FabricLoader.getInstance().getGameDir().resolve("server-icon.png")
+			: directory().resolve(icon);
+	}
+
 	public Map<String, Object> brandingPayload() {
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("title", title);
@@ -102,10 +135,19 @@ public final class WebConfig {
 	}
 
 	public static WebConfig load() {
-		Path path = FabricLoader.getInstance().getConfigDir().resolve("mc-stats-webui.json");
+		return load(FabricLoader.getInstance().getConfigDir());
+	}
+
+	static WebConfig load(Path configRoot) {
+		Path path = configRoot.resolve("mc-stats-webui/config.json");
+		Path legacy = configRoot.resolve("mc-stats-webui.json");
 		WebConfig loaded = defaults();
 		try {
 			Files.createDirectories(path.getParent());
+			if (!Files.exists(path) && Files.isRegularFile(legacy)) {
+				Files.move(legacy, path);
+				McStatsWebui.LOGGER.info("Migrated config {} to {}", legacy, path);
+			}
 			if (!Files.isRegularFile(path)) {
 				write(path, loaded);
 				McStatsWebui.LOGGER.info("Wrote default config {}", path);
@@ -154,7 +196,20 @@ public final class WebConfig {
 			McStatsWebui.LOGGER.warn("windowTitle must include {page} or <page>, using default");
 			windowTitle = DEFAULT_WINDOW_TITLE;
 		}
-		return new WebConfig(bind, port, world, title, slogan, tagline, windowTitle);
+		String icon = text(json, "icon", DEFAULT_ICON);
+		if (!icon.isEmpty() && !isIconFilename(icon)) {
+			McStatsWebui.LOGGER.warn("icon must be an image filename beside config.json, ignoring {}", icon);
+			icon = DEFAULT_ICON;
+		}
+		return new WebConfig(bind, port, world, title, slogan, tagline, windowTitle, icon);
+	}
+
+	private static boolean isIconFilename(String name) {
+		if (name.contains("/") || name.contains("\\") || name.contains(":") || name.indexOf('\0') >= 0) {
+			return false;
+		}
+		int dot = name.lastIndexOf('.');
+		return dot > 0 && ICON_EXTENSIONS.contains(name.substring(dot + 1).toLowerCase(Locale.ROOT));
 	}
 
 	private static String text(JsonObject json, String key, String fallback) {
@@ -173,6 +228,7 @@ public final class WebConfig {
 		body.put("slogan", config.slogan());
 		body.put("tagline", config.tagline());
 		body.put("windowTitle", config.windowTitle());
+		body.put("icon", config.icon());
 		try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
 			GSON.toJson(body, writer);
 			writer.write('\n');

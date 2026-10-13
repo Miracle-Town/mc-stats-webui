@@ -10,7 +10,7 @@
 
 	let { children } = $props();
 
-	let faviconHref = $state('/server-icon.png');
+	let faviconHref = $state('/favicon');
 
 	$effect(() => {
 		loadBranding();
@@ -21,7 +21,7 @@
 		image.onerror = () => {
 			faviconHref = fallbackFavicon;
 		};
-		image.src = '/server-icon.png';
+		image.src = '/favicon';
 	});
 
 	const home = $derived(page.url.pathname === '/');

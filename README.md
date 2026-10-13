@@ -16,8 +16,28 @@ A **Fabric server mod** that embeds a small web UI + API. Players open it in a b
 - 📊 Leaderboards for the whole vanilla stats catalog (custom, mined, killed, …)
 - 🧮 Transparent scoring (“How we rank”) — farms inflate some boards on purpose
 - 🌐 UI in **English / Español / Français / 简体中文** · light / dark / system theme
-- 🏷️ Branding via `config/mc-stats-webui.json` (title, slogan, tagline, window title, bind, port)
+- 🏷️ Branding via `config/mc-stats-webui/config.json` (title, slogan, tagline, window title, icon, bind, port)
 - ⚡ In-memory stats cache (see below)
+
+## ⚙️ Configuration
+
+Edit `config/mc-stats-webui/config.json` and restart the server.
+The old `config/mc-stats-webui.json` is automatically migrated if the new file does
+not exist; otherwise, the new file takes priority.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `port` | `25580` | Web server port (1–65535). |
+| `bind` | `"0.0.0.0"` | Web server listening address. |
+| `world` | `""` | World folder relative to the server directory; empty uses the active world. |
+| `title` | `"Ranking"` | Homepage heading. |
+| `slogan` | `"Server stats."` | Homepage description. |
+| `tagline` | `"by borrageiros"` | Splash text beside the heading. |
+| `windowTitle` | `"{page} - Server Ranking"` | Browser title; must include `{page}` or `<page>`. |
+| `icon` | `""` | Icon filename beside `config.json`, e.g. `"icon.png"`; empty uses `server-icon.png`. |
+
+Icons support PNG, ICO, SVG, WebP, JPEG and GIF. Missing or invalid images fall back
+to the built-in icon. Replacing the image file does not require a restart.
 
 ## 🧠 Stats cache
 

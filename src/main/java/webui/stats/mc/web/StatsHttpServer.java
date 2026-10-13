@@ -21,6 +21,7 @@ public final class StatsHttpServer {
 	private ApiHandler apiHandler = new ApiHandler(config);
 	private final StaticHandler staticHandler = new StaticHandler();
 	private final ServerIconHandler serverIconHandler = new ServerIconHandler();
+	private ServerIconHandler faviconHandler;
 	private final MojangProxy mojangProxy = new MojangProxy();
 	private HttpServer httpServer;
 	private ExecutorService executor;
@@ -37,6 +38,7 @@ public final class StatsHttpServer {
 		stop();
 		this.config = WebConfig.load();
 		this.apiHandler = new ApiHandler(config);
+		this.faviconHandler = new ServerIconHandler(config.iconPath());
 		this.minecraft = server;
 		InetSocketAddress address = new InetSocketAddress(config.bind(), config.port());
 		httpServer = HttpServer.create(address, 0);
@@ -81,6 +83,10 @@ public final class StatsHttpServer {
 				String path = exchange.getRequestURI().getPath();
 				if (path.startsWith("/api") || path.startsWith("/mojang")) {
 					HttpJson.error(exchange, 404, "not_found", "Unknown endpoint");
+					return;
+				}
+				if ("/favicon".equals(path)) {
+					faviconHandler.handle(exchange);
 					return;
 				}
 				if ("/server-icon.png".equals(path)) {
