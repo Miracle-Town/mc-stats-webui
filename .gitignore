@@ -2,6 +2,7 @@
 
 .gradle/
 .gradle-user/
+/sixlabors.lic
 work/
 build/
 out/

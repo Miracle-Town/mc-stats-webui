@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -41,7 +42,17 @@ def main() -> None:
     checkout("https://github.com/ptlthg/MinecraftRenderer.git", lock["renderer"], renderer)
     run("git", "restore", "--source=HEAD", "--worktree", "MinecraftRenderer/MinecraftRenderer.csproj", cwd=renderer)
     project = renderer / "MinecraftRenderer/MinecraftRenderer.csproj"
-    project.write_text(project.read_text(encoding="utf-8-sig").replace('Version="3.1.11"', f'Version="{lock["imageSharp"]}"'), encoding="utf-8")
+    text, replacements = re.subn(
+        r'(<PackageReference Include="SixLabors.ImageSharp" Version=")[^"]+("\s*/>)',
+        lambda match: match[1] + lock["imageSharp"] + match[2],
+        project.read_text(encoding="utf-8-sig"))
+    if replacements != 1:
+        raise ValueError("Expected one ImageSharp dependency in the pinned renderer")
+    text = text.replace(
+        '<SixLaborsLicenseFile>../sixlabors.lic</SixLaborsLicenseFile>',
+        '<SixLaborsLicenseFile Condition="\'$(SIXLABORS_LICENSE_FILE)\' != \'\'">$(SIXLABORS_LICENSE_FILE)</SixLaborsLicenseFile>\n'
+        '        <SixLaborsLicenseFile Condition="\'$(SIXLABORS_LICENSE_FILE)\' == \'\'">../sixlabors.lic</SixLaborsLicenseFile>')
+    project.write_text(text, encoding="utf-8")
     # Rebuild after any integration/toolchain change, including dependency patches.
     for relative in ("MinecraftRenderer/bin", "MinecraftRenderer/obj"):
         shutil.rmtree(renderer / relative, ignore_errors=True)

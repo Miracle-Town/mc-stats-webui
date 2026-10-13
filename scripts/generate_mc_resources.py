@@ -19,6 +19,25 @@ REQUIRED_ICONS = ("barrier", "diamond_sword", "diamond_pickaxe", "clock", "exper
                   "nether_star", "player_head", "shield", "chest", "red_bed", "stone")
 
 
+def configure_license(env: dict[str, str]) -> None:
+    if env.get("SIXLABORS_LICENSE_KEY"):
+        env["SixLaborsLicenseKey"] = env["SIXLABORS_LICENSE_KEY"]
+        return
+    license_file = env.get("SIXLABORS_LICENSE_FILE")
+    if not license_file and (ROOT / "sixlabors.lic").is_file():
+        license_file = str(ROOT / "sixlabors.lic")
+    local_config = ROOT / ".gradle/sixlabors-license-path"
+    if not license_file and local_config.is_file():
+        license_file = local_config.read_text().strip()
+    if not license_file:
+        raise ValueError("Place sixlabors.lic in the project root, set SIXLABORS_LICENSE_FILE, or configure SIXLABORS_LICENSE_KEY")
+    path = Path(license_file).expanduser().resolve()
+    if not path.is_file():
+        raise ValueError(f"Six Labors license file not found: {path}")
+    env["SIXLABORS_LICENSE_FILE"] = str(path)
+    env["SixLaborsLicenseFile"] = str(path)
+
+
 def fingerprint(version: str, jar: Path) -> str:
     digest = hashlib.sha256(version.encode())
     inputs = [ROOT / "scripts/generate_mc_resources.py", ROOT / "scripts/mc_metadata.py",
@@ -224,6 +243,7 @@ def main() -> None:
     env["DOTNET_NOLOGO"] = "1"
     env["DOTNET_CLI_HOME"] = str(tooling / "dotnet-home")
     env["NUGET_PACKAGES"] = str(tooling / "nuget-cache")
+    configure_license(env)
     subprocess.run(command, cwd=ROOT, env=env, check=True)
     index = build_index(raw, staging, lock, args.version)
     files = {str(path.relative_to(staging)): hashlib.sha256(path.read_bytes()).hexdigest()

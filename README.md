@@ -133,10 +133,19 @@ coordinates and missing-texture checkerboards are checked before publishing outp
 The web build includes only atlases, indexes, translations and the skin renderer's
 elytra texture; MinecraftImageGenerator/.NET code and raw textures are not shipped.
 
-The pinned renderer uses ImageSharp 3.1.12 because newer releases require a Six Labors
-license file. NuGet currently reports security advisories for this build-only
-dependency; the pipeline processes vanilla resources from Mojang, and the dependency
-is not included in the Mod. Upgrading it requires a compatible licensed toolchain.
+The renderer is pinned to MinecraftRenderer 0.9.1 (`ae9be4a`), with ImageSharp 4.1.3.
+Provide your Six Labors license through `SIXLABORS_LICENSE_FILE` (an absolute path to
+`sixlabors.lic`) or `SIXLABORS_LICENSE_KEY`. Both are passed to the .NET build through
+the environment. Local builds automatically find `sixlabors.lic` in the project root.
+They may also read the license path from the ignored `.gradle/sixlabors-license-path`
+file. Keep the license file outside the toolchain
+directory, which CI caches. The license and renderer code are not packaged in the Mod.
+CI reads the `SIXLABORS_LICENSE_KEY` repository secret; configure it in GitHub before
+running the upgraded rendering pipeline there.
+
+```bash
+SIXLABORS_LICENSE_FILE=/absolute/path/sixlabors.lic ./gradlew build
+```
 
 Frontend commands use `web/tsconfig.base.json` and generate the effective TypeScript
 config at `build/<version>/tsconfig.web.json`. The tracked `web/tsconfig.json` is the

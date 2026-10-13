@@ -68,6 +68,8 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: build
+        env:
+          SIXLABORS_LICENSE_KEY: ${{ secrets.SIXLABORS_LICENSE_KEY }}
         run: ./gradlew build -Pminecraft_version=${{ matrix.minecraft }}
 
       - name: check web UI
