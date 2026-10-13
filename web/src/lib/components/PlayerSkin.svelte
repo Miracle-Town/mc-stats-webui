@@ -42,6 +42,7 @@
 	let autoRotate = $state(false);
 	let scrollZoom = $state(false);
 	let equipment = $state<BackEquipment>('cape');
+	let hasCape = $state(false);
 
 	const poseKeys: Record<BodyPose, MessageKey> = {
 		idle: 'skin.pose.idle',
@@ -69,9 +70,9 @@
 		none: 'capeOff'
 	};
 
-	const equipmentOrder: BackEquipment[] = ['cape', 'elytra', 'none'];
+	const equipmentOrder = $derived<BackEquipment[]>(hasCape ? ['cape', 'elytra', 'none'] : ['elytra', 'none']);
 
-	const showControls = $derived(variant === 'body' && presentation === 'default' && controls && viewer && !failed);
+	const showControls = $derived(variant === 'body' && presentation === 'default' && controls && viewer && !failed && !loading);
 
 	$effect(() => {
 		if (variant !== 'head') {
@@ -123,6 +124,7 @@
 		autoRotate = false;
 		scrollZoom = false;
 		equipment = 'none';
+		hasCape = false;
 		let cancelled = false;
 		let handle: BodyHandle | null = null;
 		let queue = Promise.resolve();
@@ -148,11 +150,12 @@
 					return;
 				}
 				if (handle) {
-					const hasCape = await updateBodySkin(handle.viewer, id);
+					const capeAvailable = await updateBodySkin(handle.viewer, id);
 					if (cancelled) {
 						return;
 					}
-					equipment = hasCape ? 'cape' : 'none';
+					hasCape = capeAvailable;
+					equipment = capeAvailable ? 'cape' : 'none';
 					if (view === 'podium') {
 						applyPodiumPresentation(handle.viewer);
 					}
@@ -171,6 +174,7 @@
 				}
 				handle = created;
 				viewer = created.viewer;
+				hasCape = created.hasCape;
 				equipment = created.hasCape ? 'cape' : 'none';
 				loading = false;
 			});
@@ -227,6 +231,7 @@
 		const next = equipmentOrder[(equipmentOrder.indexOf(equipment) + 1) % equipmentOrder.length];
 		equipment = next;
 		viewer?.setBackEquipment(next);
+		viewer?.render();
 	}
 
 	function stopOrbit(event: PointerEvent) {

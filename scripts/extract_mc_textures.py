@@ -697,6 +697,8 @@ def copy_pngs(jar: zipfile.ZipFile) -> None:
 			dest = STATIC / "entity" / "bed.png"
 		elif name == "assets/minecraft/textures/entity/shulker/shulker.png":
 			dest = STATIC / "entity" / "shulker.png"
+		elif name == "assets/minecraft/textures/entity/equipment/wings/elytra.png":
+			dest = STATIC / "entity" / "elytra.png"
 		if dest is None:
 			continue
 		dest.parent.mkdir(parents=True, exist_ok=True)

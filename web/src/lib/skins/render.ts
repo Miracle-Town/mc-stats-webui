@@ -52,6 +52,7 @@ export type BodyHandle = {
 };
 
 const walkSpeed = 0.4;
+const defaultElytraTexture = '/mc/entity/elytra.png';
 
 export function applyBodyPose(viewer: SkinViewer, pose: BodyPose) {
 	viewer.playAnimation(pose, pose === 'walk' ? { speed: walkSpeed } : undefined);
@@ -88,7 +89,7 @@ export async function createBodyViewer(canvas: HTMLCanvasElement, uuid: string):
 	const viewer = await createSkinViewer({
 		canvas,
 		skin: textures.skinUrl,
-		cape: textures.capeUrl ?? undefined,
+		cape: textures.capeUrl ?? defaultElytraTexture,
 		backEquipment: textures.capeUrl ? 'cape' : 'none',
 		slim: textures.slim,
 		enableRotate: true,
@@ -96,6 +97,9 @@ export async function createBodyViewer(canvas: HTMLCanvasElement, uuid: string):
 		autoRotate: false,
 		zoom: defaultBodyZoom
 	});
+	// The renderer uses the cape texture for wings and auto-enables a supplied texture.
+	// Keep the default wings loaded, but hidden until selected for players without a cape.
+	viewer.setBackEquipment(textures.capeUrl ? 'cape' : 'none');
 	resetBodyCamera(viewer);
 	applyBodyPose(viewer, 'run');
 	viewer.startRenderLoop();
@@ -151,7 +155,7 @@ export async function createPodiumViewer(canvas: HTMLCanvasElement, uuid: string
 export async function updateBodySkin(viewer: SkinViewer, uuid: string): Promise<boolean> {
 	const textures = await getPlayerTextures(uuid);
 	await viewer.setSkin(textures.skinUrl);
-	await viewer.setCape(textures.capeUrl);
+	await viewer.setCape(textures.capeUrl ?? defaultElytraTexture);
 	viewer.setSlim(textures.slim);
 	viewer.setBackEquipment(textures.capeUrl ? 'cape' : 'none');
 	return Boolean(textures.capeUrl);
