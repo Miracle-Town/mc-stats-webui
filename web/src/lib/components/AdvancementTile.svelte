@@ -55,10 +55,11 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		justify-content: center;
 		gap: 0.28rem;
 		width: 100%;
 		height: 100%;
-		padding: 0.7rem 0.45rem 0.55rem;
+		padding: 0.625rem 0.45rem;
 		text-align: center;
 		min-height: 8.2rem;
 	}
