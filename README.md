@@ -69,16 +69,3 @@ single checkout because texture extraction and the web build share output files.
 CI builds all three versions on pull requests, pushes to `main`, and release tags.
 A tag such as `v1.2.2` releases all three JARs; an existing version-specific tag such
 as `v1.2.2+26.1.2` releases only the matching JAR.
-
-### Simplified Chinese
-
-Choose **简体中文** in the language menu. Chinese browser locales select it automatically;
-the choice is saved locally. UI text, ranking explanations, vanilla advancements,
-and vanilla item, block and entity names are translated. Minecraft translations are
-extracted from the selected version's official language assets. Modded identifiers
-without a translation retain their readable fallback names.
-
-```bash
-cd web
-corepack yarn check
-```
