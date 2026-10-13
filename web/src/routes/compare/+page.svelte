@@ -818,8 +818,13 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		justify-content: center;
 		gap: 0.7rem;
 		text-align: center;
+	}
+
+	.fighter p {
+		margin-block: 0;
 	}
 
 	.who {
