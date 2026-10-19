@@ -12,27 +12,33 @@ index 0971a31..9ea09c4 100644
          <!-- Renders every block and item icon in-process from the client JAR. Pinned to a commit because
               the library has no tagged releases; bump deliberately and re-run the spritesheet workflow. -->
 diff --git a/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/ItemIconRenderer.java b/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/ItemIconRenderer.java
-index 5a2702b..1ba42c2 100644
+index 5a2702b..7659676 100644
 --- a/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/ItemIconRenderer.java
 +++ b/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/ItemIconRenderer.java
-@@ -1,27 +1,37 @@
+@@ -1,12 +1,22 @@
  package net.aerh.imagegenerator.tooling.minecraft;
 
--import lib.minecraft.renderer.AtlasRenderer;
--import lib.minecraft.renderer.call.request.AtlasOptions;
--import lib.minecraft.renderer.call.result.AtlasResult;
--import lib.minecraft.renderer.content.client.ClientAcquisition;
--import lib.minecraft.renderer.content.client.ClientAssets;
--import lib.minecraft.renderer.content.client.ClientOptions;
--import lib.minecraft.renderer.content.index.RendererContext;
--import net.aerh.imagegenerator.tooling.ToolingPaths;
--
--import javax.imageio.ImageIO;
 +import com.google.gson.JsonParser;
 +import dev.simplified.collection.Concurrent;
 +import dev.simplified.util.Possible;
- import java.awt.image.BufferedImage;
- import java.io.IOException;
+ import lib.minecraft.renderer.AtlasRenderer;
++import lib.minecraft.renderer.ItemRenderer;
++import lib.minecraft.renderer.asset.Block;
++import lib.minecraft.renderer.asset.Item;
+ import lib.minecraft.renderer.call.request.AtlasOptions;
++import lib.minecraft.renderer.call.request.ItemOptions;
++import lib.minecraft.renderer.call.request.OutputOptions;
+ import lib.minecraft.renderer.call.result.AtlasResult;
++import lib.minecraft.renderer.call.result.Substitution;
+ import lib.minecraft.renderer.content.client.ClientAcquisition;
+ import lib.minecraft.renderer.content.client.ClientAssets;
+ import lib.minecraft.renderer.content.client.ClientOptions;
+ import lib.minecraft.renderer.content.index.RendererContext;
++import lib.minecraft.renderer.vanilla.id.ResourceId;
+ import net.aerh.imagegenerator.tooling.ToolingPaths;
+
+ import javax.imageio.ImageIO;
+@@ -15,9 +25,11 @@ import java.io.IOException;
  import java.nio.file.Files;
  import java.nio.file.Path;
  import java.util.ArrayList;
@@ -44,26 +50,7 @@ index 5a2702b..1ba42c2 100644
  import java.util.Set;
  import java.util.regex.Matcher;
  import java.util.regex.Pattern;
- import java.util.zip.ZipFile;
-+import javax.imageio.ImageIO;
-+import lib.minecraft.renderer.AtlasRenderer;
-+import lib.minecraft.renderer.ItemRenderer;
-+import lib.minecraft.renderer.asset.Block;
-+import lib.minecraft.renderer.asset.Item;
-+import lib.minecraft.renderer.call.request.AtlasOptions;
-+import lib.minecraft.renderer.call.request.ItemOptions;
-+import lib.minecraft.renderer.call.request.OutputOptions;
-+import lib.minecraft.renderer.call.result.AtlasResult;
-+import lib.minecraft.renderer.content.client.ClientAcquisition;
-+import lib.minecraft.renderer.content.client.ClientAssets;
-+import lib.minecraft.renderer.content.client.ClientOptions;
-+import lib.minecraft.renderer.content.index.RendererContext;
-+import lib.minecraft.renderer.vanilla.id.ResourceId;
-+import net.aerh.imagegenerator.tooling.ToolingPaths;
-
- /**
-  * Renders every item of a client version as the icon its inventory slot shows, one PNG per id, with the
-@@ -84,16 +94,42 @@ public final class ItemIconRenderer {
+@@ -84,16 +96,42 @@ public final class ItemIconRenderer {
              .cacheRoot(paths.rendererCache().toFile())
              .build();
          RendererContext context = RendererContext.load(new ClientAssets(options, ClientAcquisition.readVanillaPack(jar)));
@@ -86,7 +73,7 @@ index 5a2702b..1ba42c2 100644
 
          Files.createDirectories(outputDir);
 -        AtlasRenderer renderer = new AtlasRenderer(context);
-+        ModelContext preferred = preferDeclaredItemModels(context, jar, ids);
++        ModelContext preferred = preferSignItemModels(context, jar, ids);
 +        AtlasRenderer renderer = new AtlasRenderer(preferred.context());
          Set<String> drawn = new HashSet<>();
          List<String> skipped = new ArrayList<>();
@@ -100,7 +87,7 @@ index 5a2702b..1ba42c2 100644
 +                .output(OutputOptions.builder().canvasSize(renderSize).build()).build());
 +            BufferedImage image = result.image().toBufferedImage();
 +            var tile = new AtlasResult.Tile(id, AtlasResult.Tile.Kind.ITEM, AtlasResult.Tile.Source.ITEM_MODEL,
-+                0, 0, 0, 0, image.getWidth(), image.getHeight(), List.of());
++                0, 0, 0, 0, image.getWidth(), image.getHeight(), result.substitutions());
 +            written += writeTiles(image, List.of(tile), outputDir);
 +            drawn.add(id);
 +            done++;
@@ -110,7 +97,7 @@ index 5a2702b..1ba42c2 100644
              Set<String> wanted = new HashSet<>(batch);
              AtlasResult result = renderer.render(AtlasOptions.builder()
                  .filter(wanted::contains)
-@@ -121,6 +157,25 @@ public final class ItemIconRenderer {
+@@ -121,6 +159,25 @@ public final class ItemIconRenderer {
              }
          }
 
@@ -136,20 +123,19 @@ index 5a2702b..1ba42c2 100644
          for (String row : skipped) {
              System.err.println("  skipped " + row);
          }
-@@ -129,6 +184,54 @@ public final class ItemIconRenderer {
+@@ -129,6 +186,51 @@ public final class ItemIconRenderer {
          return new Report(written, List.copyOf(skipped));
      }
 
-+    /** New clients replace some block-entity icons with ordinary item models (signs and beds in 26.3).
-+     * Do not let the renderer's older hard-coded block-entity registry override those definitions. */
++    /** Prefer declared sign item models over the renderer's obsolete sign block-entity entries. */
 +    record ModelContext(RendererContext context, Set<String> items) {}
 +
-+    static ModelContext preferDeclaredItemModels(RendererContext context, Path jar, List<String> ids) throws IOException {
++    static ModelContext preferSignItemModels(RendererContext context, Path jar, List<String> ids) throws IOException {
 +        Set<String> modelItems = new HashSet<>();
 +        Map<String, Item> itemOverrides = new HashMap<>();
 +        try (ZipFile zip = new ZipFile(jar.toFile())) {
 +            for (String id : ids) {
-+                if (!context.findBlockEntityEntry(id).isPresent()) continue;
++                if (!id.endsWith("_sign") || !context.findBlockEntityEntry(id).isPresent()) continue;
 +                String definition = ITEM_DEFINITIONS_DIR + id.substring(VANILLA_NAMESPACE.length()) + ".json";
 +                if (zip.getEntry(definition) == null) continue;
 +                var entry = zip.getEntry(definition);
@@ -167,8 +153,6 @@ index 5a2702b..1ba42c2 100644
 +                                Concurrent.newUnmodifiableList(), false));
 +                            modelItems.add(id);
 +                        }
-+                    } else if (type.equals("minecraft:composite") && !model.toString().contains("minecraft:special")) {
-+                        modelItems.add(id);
 +                    }
 +                }
 +            }
@@ -191,26 +175,19 @@ index 5a2702b..1ba42c2 100644
      /**
       * The item ids a client JAR registers, read from its one-definition-per-item directory, namespaced and
       * sorted. Model files, which also exist for variants such as armour trims, are not items and are not read.
-@@ -203,6 +306,19 @@ public final class ItemIconRenderer {
+@@ -194,6 +296,12 @@ public final class ItemIconRenderer {
+                 continue;
+             }
 
-             BufferedImage icon = new BufferedImage(tile.width(), tile.height(), BufferedImage.TYPE_INT_ARGB);
-             int[] pixels = sheet.getRGB(tile.x(), tile.y(), tile.width(), tile.height(), null, 0, tile.width());
-+            int visible = 0;
-+            int missing = 0;
-+            for (int pixel : pixels) {
-+                if ((pixel >>> 24) == 0) continue;
-+                visible++;
-+                int red = (pixel >>> 16) & 255;
-+                int green = (pixel >>> 8) & 255;
-+                int blue = pixel & 255;
-+                if (red > 20 && red == blue && green == 0) missing++;
++            var missingTextures = tile.substitutions().stream()
++                .filter(row -> row.kind() == Substitution.Kind.TEXTURE).toList();
++            if (!missingTextures.isEmpty()) {
++                throw new IOException("Missing textures in rendered icon " + tile.id() + ": " + missingTextures);
 +            }
-+            if (missing > 0 && missing * 50 > visible) {
-+                throw new IOException("Missing texture checkerboard in rendered icon: " + tile.id());
-+            }
-             icon.setRGB(0, 0, tile.width(), tile.height(), pixels, 0, tile.width());
-
-             Path file = outputDir.resolve(iconFileName(tile.id()));
++
+             if (tile.x() < 0 || tile.y() < 0
+                 || tile.x() + tile.width() > sheet.getWidth() || tile.y() + tile.height() > sheet.getHeight()) {
+                 throw new IOException("Tile for " + tile.id() + " at (" + tile.x() + ", " + tile.y() + ") "
 diff --git a/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/MinecraftAssetTool.java b/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/MinecraftAssetTool.java
 index 894bcca..4f7e99a 100644
 --- a/tooling/src/main/java/net/aerh/imagegenerator/tooling/minecraft/MinecraftAssetTool.java

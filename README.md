@@ -135,9 +135,11 @@ it also sets the lossless WebP compression effort (`webp.quality` and `webp.meth
 Changing these values or the converter invalidates the resource cache. Page/CSS edits
 reuse the existing WebP files without running conversion again.
 `tooling.patch` pins Marmalade and makes incomplete renders and missing-texture
-checkerboards fail the build. It also includes drawable non-item blocks from the
+diagnostics fail the build (using the renderer's `Substitution.Kind.TEXTURE`, not
+a pixel-colour heuristic). It also includes drawable non-item blocks from the
 client blockstate registry and prefers current item models over obsolete hard-coded
-block-entity icons (signs and beds). Upstream supplies configurable paths, atlas paging,
+block-entity icons for signs. Beds and bells use upstream rendering. Upstream
+supplies configurable paths, atlas paging,
 64px tiles and 1px gutters through explicit CLI flags. The Java renderer reads the
 unmodified client JAR; no model rewrites or legacy texture copies are needed.
 Entity and non-item block aliases are resolved at build time. The web build includes
