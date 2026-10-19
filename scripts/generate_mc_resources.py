@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import shutil
 import struct
 import subprocess
@@ -17,25 +16,6 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "scripts/mc-atlas/toolchain.json"
 REQUIRED_ICONS = ("barrier", "diamond_sword", "diamond_pickaxe", "clock", "experience_bottle",
                   "nether_star", "player_head", "shield", "chest", "red_bed", "stone")
-
-
-def configure_license(env: dict[str, str]) -> None:
-    if env.get("SIXLABORS_LICENSE_KEY"):
-        env["SixLaborsLicenseKey"] = env["SIXLABORS_LICENSE_KEY"]
-        return
-    license_file = env.get("SIXLABORS_LICENSE_FILE")
-    if not license_file and (ROOT / "sixlabors.lic").is_file():
-        license_file = str(ROOT / "sixlabors.lic")
-    local_config = ROOT / ".gradle/sixlabors-license-path"
-    if not license_file and local_config.is_file():
-        license_file = local_config.read_text().strip()
-    if not license_file:
-        raise ValueError("Place sixlabors.lic in the project root, set SIXLABORS_LICENSE_FILE, or configure SIXLABORS_LICENSE_KEY")
-    path = Path(license_file).expanduser().resolve()
-    if not path.is_file():
-        raise ValueError(f"Six Labors license file not found: {path}")
-    env["SIXLABORS_LICENSE_FILE"] = str(path)
-    env["SixLaborsLicenseFile"] = str(path)
 
 
 def fingerprint(version: str, jar: Path) -> str:
@@ -107,40 +87,11 @@ def png_size(path: Path) -> tuple[int, int]:
     return struct.unpack(">II", header[16:24])
 
 
-def normalize_models(assets: Path) -> None:
-    # 26.3 allows {sprite, force_translucent} texture references. The pinned
-    # renderer expects strings; keep the sprite and its original PNG alpha.
-    for path in sorted((assets / "models").rglob("*.json")):
-        model = json.loads(path.read_text())
-        changed = False
-        for key, value in model.get("textures", {}).items():
-            if isinstance(value, dict):
-                if set(value) - {"sprite", "force_translucent"} or not isinstance(value.get("sprite"), str):
-                    raise ValueError(f"Unsupported model texture reference in {path}: {value}")
-                model["textures"][key] = value["sprite"]
-                changed = True
-        if changed:
-            write_json(path, model)
-
-
-def install_texture_aliases(assets: Path) -> None:
-    aliases = json.loads((ROOT / "scripts/mc-atlas/texture-aliases.json").read_text())
-    for legacy, current in aliases.items():
-        source = assets / "textures" / f"{current}.png"
-        dest = assets / "textures" / f"{legacy}.png"
-        if not dest.exists() and source.exists():
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source, dest)
-
-
-def convert_atlases(raw: Path, output: Path, tooling: Path, lock: dict, env: dict) -> None:
-    project = tooling / "webp-converter/WebpConverter.csproj"
-    subprocess.run(["dotnet", "build", str(project), "--configuration", "Release", "--nologo"],
-                   cwd=ROOT, env=env, check=True)
-    assembly = tooling / "webp-converter/bin/Release/net10.0/WebpConverter.dll"
-    subprocess.run(["dotnet", str(assembly), str(raw / "spritesheets"), str(output / "atlas"),
+def convert_atlases(raw: Path, output: Path, lock: dict) -> None:
+    subprocess.run(["java", "-Djava.awt.headless=true", str(ROOT / "scripts/mc-atlas/WebpConverter.java"),
+                    str(raw / "spritesheets"), str(output / "atlas"),
                     str(lock["webp"]["quality"]), str(lock["webp"]["method"])],
-                   cwd=ROOT, env=env, check=True)
+                   cwd=ROOT, check=True)
 
 
 def build_index(raw: Path, output: Path, lock: dict, version: str) -> dict:
@@ -150,7 +101,13 @@ def build_index(raw: Path, output: Path, lock: dict, version: str) -> dict:
         raise ValueError("Atlas pages are empty or non-contiguous")
     atlases = []
     for page in pages:
-        source = raw / f"spritesheets/minecraft_texture_atlas-{page}.png"
+        names = {entry["atlas"] for entry in entries if entry["page"] == page}
+        if len(names) != 1:
+            raise ValueError(f"Conflicting atlas names for page {page}: {names}")
+        atlas_name = names.pop()
+        if not isinstance(atlas_name, str) or Path(atlas_name).name != atlas_name:
+            raise ValueError(f"Invalid atlas filename: {atlas_name}")
+        source = raw / "spritesheets" / atlas_name
         width, height = png_size(source)
         if width > lock["atlasWidth"] or height > lock["atlasWidth"]:
             raise ValueError(f"Oversized atlas: {source}")
@@ -216,7 +173,9 @@ def main() -> None:
     if not args.force and reusable_output(output, args.version, expected):
         print(f"Reusing validated Minecraft {args.version} resources: {output}")
         return
-    subprocess.run(["dotnet", "--version"], check=True)
+    for command in ("cwebp", "dwebp"):
+        if not shutil.which(command):
+            raise ValueError(f"{command} is required; install the WebP tools (brew install webp / apt install webp)")
     # Always recreate this version's extracted input when the task is invalidated.
     assets = work / "minecraft-assets"
     if assets.exists():
@@ -239,25 +198,22 @@ def main() -> None:
         write_vanilla_lang(jar, args.version, staging)
         wings = "assets/minecraft/textures/entity/equipment/wings/elytra.png"
         (staging / "elytra.png").write_bytes(jar.read(wings))
-    normalize_models(assets)
-    install_texture_aliases(assets)
+    # The Java renderer reads the original client JAR, not patched extracted models.
+    cached_jar = work / "minecraft-jars" / f"minecraft-{args.version}-client.jar"
+    cached_jar.parent.mkdir(parents=True, exist_ok=True)
+    if cached_jar.resolve() != jar_path.resolve():
+        shutil.copyfile(jar_path, cached_jar)
     raw = work / "atlas-output"
     if raw.exists():
         shutil.rmtree(raw)
-    command = ["java", "-Djava.awt.headless=true", f"-Dmc.workDir={work}", f"-Dmc.outputDir={raw}",
-               f"-Dmc.rendererDir={tooling / 'renderer'}", f"-Dmc.tileSize={lock['tileSize']}",
-               f"-Dmc.atlasWidth={lock['atlasWidth']}", "-cp", (tooling / "classpath.txt").read_text().strip(),
+    command = ["java", "-Xmx4G", "-Djava.awt.headless=true", "-cp", (tooling / "classpath.txt").read_text().strip(),
                "net.aerh.imagegenerator.tooling.minecraft.MinecraftAssetTool",
                "--render", "--spritesheet", "--no-clean", "--debug", f"--version={args.version}",
-               f"--size={lock['tileSize']}"]
-    env = os.environ.copy()
-    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
-    env["DOTNET_NOLOGO"] = "1"
-    env["DOTNET_CLI_HOME"] = str(tooling / "dotnet-home")
-    env["NUGET_PACKAGES"] = str(tooling / "nuget-cache")
-    configure_license(env)
-    subprocess.run(command, cwd=ROOT, env=env, check=True)
-    convert_atlases(raw, staging, tooling, lock, env)
+               f"--work-dir={work}", f"--output-dir={raw}", f"--size={lock['tileSize']}",
+               f"--tile-size={lock['tileSize']}", f"--atlas-width={lock['atlasWidth']}",
+               f"--atlas-height={lock['atlasWidth']}", "--padding=1"]
+    subprocess.run(command, cwd=ROOT, check=True)
+    convert_atlases(raw, staging, lock)
     index = build_index(raw, staging, lock, args.version)
     files = {str(path.relative_to(staging)): hashlib.sha256(path.read_bytes()).hexdigest()
              for path in sorted(staging.rglob("*")) if path.is_file()}

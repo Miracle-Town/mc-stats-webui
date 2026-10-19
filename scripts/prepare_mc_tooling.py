@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -26,8 +25,7 @@ def checkout(url: str, revision: str, dest: Path) -> None:
     if head.stdout.strip() != revision:
         run("git", "fetch", "--depth=1", "origin", revision, cwd=dest)
         run("git", "checkout", "--detach", "--force", revision, cwd=dest)
-        for relative in ("MinecraftRenderer/bin", "MinecraftRenderer/obj"):
-            shutil.rmtree(dest / relative, ignore_errors=True)
+        shutil.rmtree(dest / "tooling/target", ignore_errors=True)
 
 
 def main() -> None:
@@ -37,29 +35,9 @@ def main() -> None:
     output = args.output.resolve()
     lock = json.loads(CONFIG.read_text())
     generator = output / "generator"
-    renderer = output / "renderer"
     checkout("https://github.com/Aerhhh/MinecraftImageGenerator.git", lock["generator"], generator)
-    checkout("https://github.com/ptlthg/MinecraftRenderer.git", lock["renderer"], renderer)
-    run("git", "restore", "--source=HEAD", "--worktree", "MinecraftRenderer/MinecraftRenderer.csproj", cwd=renderer)
-    project = renderer / "MinecraftRenderer/MinecraftRenderer.csproj"
-    text, replacements = re.subn(
-        r'(<PackageReference Include="SixLabors.ImageSharp" Version=")[^"]+("\s*/>)',
-        lambda match: match[1] + lock["imageSharp"] + match[2],
-        project.read_text(encoding="utf-8-sig"))
-    if replacements != 1:
-        raise ValueError("Expected one ImageSharp dependency in the pinned renderer")
-    text = text.replace(
-        '<SixLaborsLicenseFile>../sixlabors.lic</SixLaborsLicenseFile>',
-        '<SixLaborsLicenseFile Condition="\'$(SIXLABORS_LICENSE_FILE)\' != \'\'">$(SIXLABORS_LICENSE_FILE)</SixLaborsLicenseFile>\n'
-        '        <SixLaborsLicenseFile Condition="\'$(SIXLABORS_LICENSE_FILE)\' == \'\'">../sixlabors.lic</SixLaborsLicenseFile>')
-    project.write_text(text, encoding="utf-8")
-    converter = output / "webp-converter"
-    converter.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(ROOT / "scripts/mc-atlas/WebpConverter.cs", converter / "Program.cs")
-    shutil.copyfile(ROOT / "scripts/mc-atlas/WebpConverter.csproj", converter / "WebpConverter.csproj")
-    # Rebuild after any integration/toolchain change, including dependency patches.
-    for relative in ("MinecraftRenderer/bin", "MinecraftRenderer/obj"):
-        shutil.rmtree(renderer / relative, ignore_errors=True)
+    # Compiled classes must never survive a toolchain or integration change.
+    shutil.rmtree(generator / "tooling/target", ignore_errors=True)
     # These are disposable build checkouts, never the user's source checkout.
     run("git", "restore", "--source=HEAD", "--worktree", "tooling", cwd=generator)
     run("git", "apply", str(ROOT / "scripts/mc-atlas/tooling.patch"), cwd=generator)

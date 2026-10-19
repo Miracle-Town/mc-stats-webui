@@ -54,7 +54,7 @@ More detail: [endpoints](docs/endpoints.md) · [stats & champion](docs/stats-ana
 
 ## 🛠️ Development
 
-**Needs:** Java 25 · Python 3.9+ · Git · .NET SDK 10 · Node 24+ · [Yarn via Corepack](https://yarnpkg.com/corepack) · Fabric for Minecraft 26.1.2, 26.2 or 26.3
+**Needs:** Java 25 · Python 3.9+ · Git · WebP tools (`cwebp` and `dwebp`) · Node 24+ · [Yarn via Corepack](https://yarnpkg.com/corepack) · Fabric for Minecraft 26.1.2, 26.2 or 26.3
 
 ```bash
 ./gradlew generateMcResources
@@ -92,8 +92,9 @@ sequentially in one checkout because Gradle/Loom and the toolchain share build s
 
 Packaging automatically runs the pinned [MinecraftImageGenerator](https://github.com/Aerhhh/MinecraftImageGenerator)
 tooling to render icons and pack 64px sprites into atlases of at most 2048×2048px.
-The PNG atlases are converted to lossless WebP with the existing ImageSharp dependency;
-the converter decodes each result and verifies every RGBA pixel before publishing.
+The PNG atlases are converted with `cwebp -lossless -exact`; `dwebp` decodes each
+result and a Java ImageIO verifier checks every RGBA pixel before publishing,
+including RGB values under fully transparent pixels.
 PNG intermediates stay in `mc/work/`, while `mc/generated/atlas/` contains WebP files.
 Vite imports them through `?url` and emits hashed WebP assets into the packaged UI.
 Each sprite has a 1px transparent gutter. `McItem` reads generated coordinates and
@@ -133,26 +134,30 @@ From the repository root, force regeneration with:
 it also sets the lossless WebP compression effort (`webp.quality` and `webp.method`).
 Changing these values or the converter invalidates the resource cache. Page/CSS edits
 reuse the existing WebP files without running conversion again.
-`tooling.patch` supplies configurable output paths, atlas paging and strict rendering
-failures. The integration adapts 26.3 texture-reference objects and moved vanilla
-texture paths, and resolves entity/wall-block aliases at build time. Required icons,
-coordinates and missing-texture checkerboards are checked before publishing outputs.
-The web build includes only atlases, indexes, translations and the skin renderer's
-elytra texture; MinecraftImageGenerator/.NET code and raw textures are not shipped.
+`tooling.patch` pins Marmalade and makes incomplete renders and missing-texture
+checkerboards fail the build. It also includes drawable non-item blocks from the
+client blockstate registry and prefers current item models over obsolete hard-coded
+block-entity icons (signs and beds). Upstream supplies configurable paths, atlas paging,
+64px tiles and 1px gutters through explicit CLI flags. The Java renderer reads the
+unmodified client JAR; no model rewrites or legacy texture copies are needed.
+Entity and non-item block aliases are resolved at build time. The web build includes
+only atlases, indexes, translations and the skin renderer's elytra texture;
+the generator, rendering libraries and raw textures are not shipped.
 
-The renderer is pinned to MinecraftRenderer 0.9.1 (`ae9be4a`), with ImageSharp 4.1.3.
-Provide your Six Labors license through `SIXLABORS_LICENSE_FILE` (an absolute path to
-`sixlabors.lic`) or `SIXLABORS_LICENSE_KEY`. Both are passed to the .NET build through
-the environment. Local builds automatically find `sixlabors.lic` in the project root.
-They may also read the license path from the ignored `.gradle/sixlabors-license-path`
-file. Keep the license file outside the toolchain
-directory, which CI caches. The license and renderer code are not packaged in the Mod.
-CI reads the `SIXLABORS_LICENSE_KEY` repository secret; configure it in GitHub before
-running the upgraded rendering pipeline there.
+The generator is pinned to `284b679`, using the Apache-2.0 Java
+[asset-renderer](https://github.com/minecraft-library/asset-renderer) library pinned
+by upstream to `addedec7a2`. Rendering and WebP verification use the existing JDK;
+no .NET SDK, ImageSharp or Six Labors license is required.
+Install the WebP command-line tools before building:
 
 ```bash
-SIXLABORS_LICENSE_FILE=/absolute/path/sixlabors.lic ./gradlew build
+brew install webp                 # macOS
+sudo apt-get install webp         # Debian / Ubuntu
+# Windows: install the WebP tools and add cwebp.exe and dwebp.exe to PATH.
 ```
+
+CI installs WebP tools automatically. Previous Six Labors repository secrets and
+local license settings are unused and can be removed.
 
 Frontend commands use `web/tsconfig.base.json` and generate the effective TypeScript
 config at `build/<version>/tsconfig.web.json`. The tracked `web/tsconfig.json` is the
