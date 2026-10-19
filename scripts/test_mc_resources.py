@@ -3,7 +3,6 @@ import hashlib
 import json
 import shutil
 import struct
-import subprocess
 import zlib
 import tempfile
 import unittest
@@ -11,15 +10,16 @@ import zipfile
 from pathlib import Path
 
 from generate_mc_resources import build_index, reusable_output, validate_client_version
+from convert_mc_atlases import convert_atlases, read_png_rgba, verify_pixels
 
-ROOT = Path(__file__).resolve().parents[1]
 
-
-def write_png(path, width, height, pixels):
+def write_png(path, width, height, pixels, colour=6, filtered=None):
     def chunk(kind, data):
         return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
-    rows = b"".join(b"\0" + pixels[y * width * 4:(y + 1) * width * 4] for y in range(height))
-    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+    channels = 4 if colour == 6 else 3
+    rows = filtered if filtered is not None else b"".join(
+        b"\0" + pixels[y * width * channels:(y + 1) * width * channels] for y in range(height))
+    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, colour, 0, 0, 0))
                      + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
 
 
@@ -92,20 +92,39 @@ class ResourceCacheTests(unittest.TestCase):
 
 
 class WebpConversionTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.temp = tempfile.TemporaryDirectory()
-        cls.addClassCleanup(cls.temp.cleanup)
-        cls.classes = Path(cls.temp.name)
-        subprocess.run(["javac", "-d", str(cls.classes), str(ROOT / "scripts/mc-atlas/WebpConverter.java")], check=True)
-        probe = cls.classes / "VerifyPixels.java"
-        probe.write_text('import java.nio.file.Path; class VerifyPixels { public static void main(String[] a) throws Exception { WebpConverter.verifyPixels(Path.of(a[0]), Path.of(a[1])); } }')
-        subprocess.run(["javac", "-cp", str(cls.classes), "-d", str(cls.classes), str(probe)], check=True)
-
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
+
+    def test_png_filter_vectors(self):
+        expected = bytes(range(10, 170, 10))
+        vectors = (
+            (list(range(10, 90, 10)), list(range(90, 170, 10))),
+            ([10, 20, 30, 40, 40, 40, 40, 40], [90, 100, 110, 120, 40, 40, 40, 40]),
+            (list(range(10, 90, 10)), [80] * 8),
+            ([10, 20, 30, 40, 45, 50, 55, 60], [85, 90, 95, 100, 60, 60, 60, 60]),
+            ([10, 20, 30, 40, 40, 40, 40, 40], [80, 80, 80, 80, 40, 40, 40, 40]),
+        )
+        for filter_type, (first, second) in enumerate(vectors):
+            with self.subTest(filter=filter_type):
+                png = self.root / f"filter-{filter_type}.png"
+                write_png(png, 2, 2, expected, filtered=bytes([filter_type] + first + [filter_type] + second))
+                self.assertEqual(read_png_rgba(png), (2, 2, expected))
+
+    def test_rgb_png_expands_to_opaque_rgba(self):
+        png = self.root / "rgb.png"
+        write_png(png, 2, 1, bytes([1, 2, 3, 4, 5, 6]), colour=2)
+        self.assertEqual(read_png_rgba(png), (2, 1, bytes([1, 2, 3, 255, 4, 5, 6, 255])))
+
+    def test_png_rejects_corrupt_data(self):
+        png = self.root / "corrupt.png"
+        write_png(png, 1, 1, bytes(4))
+        data = bytearray(png.read_bytes())
+        data[20] ^= 1
+        png.write_bytes(data)
+        with self.assertRaisesRegex(ValueError, "checksum"):
+            read_png_rgba(png)
 
     def test_first_and_numbered_pages_preserve_transparent_rgba(self):
         for tool in ("cwebp", "dwebp"):
@@ -116,8 +135,7 @@ class WebpConversionTests(unittest.TestCase):
         pixels = bytes([17, 33, 55, 0, 255, 0, 200, 127, 1, 2, 3, 255, 0, 255, 0, 1])
         for name in ("minecraft_texture_atlas.png", "minecraft_texture_atlas-1.png"):
             write_png(source / name, 2, 2, pixels)
-        subprocess.run(["java", "-Djava.awt.headless=true", "-cp", str(self.classes), "WebpConverter",
-                        str(source), str(output), "100", "6"], check=True)
+        convert_atlases(source, output, 100, 6)
         self.assertEqual(sorted(p.name for p in output.iterdir()), ["items-0.webp", "items-1.webp"])
 
     def test_verifier_rejects_changed_pixels_and_dimensions(self):
@@ -126,10 +144,9 @@ class WebpConversionTests(unittest.TestCase):
         for width, pixels in ((1, bytes([18, 33, 55, 0])), (2, bytes(8))):
             changed = self.root / "changed.png"
             write_png(changed, width, 1, pixels)
-            result = subprocess.run(["java", "-Djava.awt.headless=true", "-cp", str(self.classes),
-                                     "VerifyPixels", str(original), str(changed)], capture_output=True, text=True)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("changed", result.stderr)
+            with self.assertRaisesRegex(ValueError, "changed"):
+                verify_pixels(original, changed)
+
 
 
 if __name__ == "__main__":

@@ -94,7 +94,7 @@ tasks.register('generateMcResources', Exec) {
 	inputs.files file('scripts/generate_mc_resources.py'), file('scripts/mc_metadata.py')
 	inputs.file file('scripts/prepare_mc_tooling.py')
 	inputs.files file('scripts/mc-atlas/toolchain.json'), file('scripts/mc-atlas/aliases.json'), file('scripts/mc-atlas/tooling.patch')
-	inputs.file file('scripts/mc-atlas/WebpConverter.java')
+	inputs.file file('scripts/convert_mc_atlases.py')
 	outputs.dir mcResources
 	localState.register(layout.buildDirectory.dir('mc/work'))
 	environment 'GRADLE_USER_HOME', gradle.gradleUserHomeDir.absolutePath

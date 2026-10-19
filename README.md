@@ -93,7 +93,7 @@ sequentially in one checkout because Gradle/Loom and the toolchain share build s
 Packaging automatically runs the pinned [MinecraftImageGenerator](https://github.com/Aerhhh/MinecraftImageGenerator)
 tooling to render icons and pack 64px sprites into atlases of at most 2048×2048px.
 The PNG atlases are converted with `cwebp -lossless -exact`; `dwebp` decodes each
-result and a Java ImageIO verifier checks every RGBA pixel before publishing,
+result and `scripts/convert_mc_atlases.py` checks every RGBA pixel before publishing,
 including RGB values under fully transparent pixels.
 PNG intermediates stay in `mc/work/`, while `mc/generated/atlas/` contains WebP files.
 Vite imports them through `?url` and emits hashed WebP assets into the packaged UI.
@@ -146,7 +146,8 @@ the generator, rendering libraries and raw textures are not shipped.
 
 The generator is pinned to `284b679`, using the Apache-2.0 Java
 [asset-renderer](https://github.com/minecraft-library/asset-renderer) library pinned
-by upstream to `addedec7a2`. Rendering and WebP verification use the existing JDK;
+by upstream to `addedec7a2`. Rendering uses the JDK; WebP verification uses Python’s
+standard library and accepts the non-interlaced 8-bit RGB/RGBA PNGs from the pipeline;
 no .NET SDK, ImageSharp or Six Labors license is required.
 Install the WebP command-line tools before building:
 

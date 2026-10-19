@@ -11,6 +11,7 @@ import zipfile
 from pathlib import Path
 
 from mc_metadata import resolve_jar, write_vanilla_lang
+from convert_mc_atlases import convert_atlases
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "scripts/mc-atlas/toolchain.json"
@@ -21,6 +22,7 @@ REQUIRED_ICONS = ("barrier", "diamond_sword", "diamond_pickaxe", "clock", "exper
 def fingerprint(version: str, jar: Path) -> str:
     digest = hashlib.sha256(version.encode())
     inputs = [ROOT / "scripts/generate_mc_resources.py", ROOT / "scripts/mc_metadata.py",
+              ROOT / "scripts/convert_mc_atlases.py",
               ROOT / "scripts/prepare_mc_tooling.py", *sorted((ROOT / "scripts/mc-atlas").glob("*"))]
     for path in inputs:
         if path.is_file():
@@ -85,13 +87,6 @@ def png_size(path: Path) -> tuple[int, int]:
     if header[:8] != b"\x89PNG\r\n\x1a\n" or len(header) != 24:
         raise ValueError(f"Invalid PNG: {path}")
     return struct.unpack(">II", header[16:24])
-
-
-def convert_atlases(raw: Path, output: Path, lock: dict) -> None:
-    subprocess.run(["java", "-Djava.awt.headless=true", str(ROOT / "scripts/mc-atlas/WebpConverter.java"),
-                    str(raw / "spritesheets"), str(output / "atlas"),
-                    str(lock["webp"]["quality"]), str(lock["webp"]["method"])],
-                   cwd=ROOT, check=True)
 
 
 def build_index(raw: Path, output: Path, lock: dict, version: str) -> dict:
@@ -213,7 +208,7 @@ def main() -> None:
                f"--tile-size={lock['tileSize']}", f"--atlas-width={lock['atlasWidth']}",
                f"--atlas-height={lock['atlasWidth']}", "--padding=1"]
     subprocess.run(command, cwd=ROOT, check=True)
-    convert_atlases(raw, staging, lock)
+    convert_atlases(raw / "spritesheets", staging / "atlas", lock["webp"]["quality"], lock["webp"]["method"])
     index = build_index(raw, staging, lock, args.version)
     files = {str(path.relative_to(staging)): hashlib.sha256(path.read_bytes()).hexdigest()
              for path in sorted(staging.rglob("*")) if path.is_file()}
